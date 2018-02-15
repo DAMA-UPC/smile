@@ -12,7 +12,7 @@ class BufferPool;
 
 class Buffer {
   public:
-    Buffer( BufferPool* m_pool ) noexcept;
+    Buffer( bufferId_t m_bId, transactionId_t m_tId ) noexcept;
     ~Buffer() noexcept;
 
     void write(char* data, uint32_t numBytes, uint32_t startByte );

@@ -8,6 +8,8 @@
 #include "../storage/file_storage.h"
 #include "buffer.h"
 #include "types.h"
+#include "boost/dynamic_bitset.hpp"
+
 
 SMILE_NS_BEGIN
 
@@ -16,9 +18,8 @@ class BufferPool {
     SMILE_NON_COPYABLE(BufferPool);
     friend class Buffer;
 
-    BufferPool(FileStorage* storage) noexcept;
+    BufferPool(FileStorage* storage, uint64_t poolSize = 128, uint64_t bufferSize = 4096) noexcept;
     ~BufferPool() noexcept = default;
-
 
     /**
      * Starts a transaction
@@ -67,11 +68,42 @@ class BufferPool {
 
   private:
 
+    struct bufferDescriptor {
+        uint64_t usageCount; // Number of times the stored page has been accessed since it was loaded in the slot
+        bool dirty; // Whether the buffer is dirty or not
+    };
+
     /**
      * The file storage where this buffer pool will be persisted
      **/
-    FileStorage* const m_storage;
+    FileStorage* m_storage;
 
+    /**
+     * Buffer pool
+     */
+    // TODO
+    // Declare a buffer pool
+    // std::vector<Buffer> m_pool;
+
+    /**
+     * Buffer descriptors (metadata)
+     */
+    std::vector<bufferDescriptor> m_descriptors;
+
+    /**
+     * Size of a Buffer Pool slot in KB
+     */
+    uint64_t m_bufferSize;
+
+    /**
+     * Bitset representing whether a Buffer Pool slot is allocated (1) or not (0)
+     */
+    boost::dynamic_bitset<> m_allocationTable;
+
+    /**
+     * Next victim to test during Clock Sweep
+     */
+    uint64_t m_nextCSVictim;
 };
 
 SMILE_NS_END

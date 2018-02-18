@@ -79,7 +79,7 @@ Buffer BufferPool::pin( const bufferId_t bId, const transactionId_t tId ) noexce
 	++m_descriptors[bId].usageCount;
 	
 	// Return a handler for the corresponding buffer slot
-	Buffer buffer(bId, tId, getBuffer(bId));
+	Buffer buffer(bId, tId, getBuffer(bId), m_descriptors[bId].dirty);
 	return buffer;	
 }
 

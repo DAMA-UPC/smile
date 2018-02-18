@@ -14,7 +14,7 @@ class Buffer {
 
   public:
 
-    Buffer( bufferId_t bId, transactionId_t tId, char* bufferSlot, bool& dirty ) noexcept;
+    Buffer( bufferId_t bId, transactionId_t tId, char* bufferSlot, bool* dirty ) noexcept;
     
     ~Buffer() noexcept = default;
 
@@ -61,7 +61,7 @@ class Buffer {
     /**
      * Dirty bit
      */
-    bool            m_dirty;
+    bool*            m_dirty;
 };
 
 SMILE_NS_END

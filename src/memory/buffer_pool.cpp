@@ -64,7 +64,7 @@ bufferId_t BufferPool::alloc( const transactionId_t tId, const extentId_t extent
 	return bufferId;
 }
 
-void BufferPool::release( const bufferId_t bId, const transactionId_t tId ) noexcept {
+void BufferPool::release( const bufferId_t bId ) noexcept {
 	// Set buffer as not allocated
 	m_allocationTable.set(bId, 0);
 
@@ -79,7 +79,7 @@ Buffer BufferPool::pin( const bufferId_t bId, const transactionId_t tId ) noexce
 	++m_descriptors[bId].usageCount;
 	
 	// Return a handler for the corresponding buffer slot
-	Buffer buffer(bId, tId, getBuffer(bId), m_descriptors[bId].dirty);
+	Buffer buffer(bId, tId, getBuffer(bId), &m_descriptors[bId].dirty);
 	return buffer;	
 }
 

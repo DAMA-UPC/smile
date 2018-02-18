@@ -48,7 +48,7 @@ class BufferPool {
      * @param in bId The buffer to release
      * @param in tId The id of the transaction 
      **/
-    void release( const bufferId_t bId, const transactionId_t tId ) noexcept;
+    void release( const bufferId_t bId ) noexcept;
 
     /**
      * Pins the buffer
@@ -70,6 +70,8 @@ class BufferPool {
      **/
     void checkpoint() noexcept;
 
+  private:
+
     /**
      * Get a pointer to the specified buffer slot
      * 
@@ -77,8 +79,6 @@ class BufferPool {
      * @return Pointer to bId buffer 
      */
     char* getBuffer( const bufferId_t bId ) noexcept;
-
-  private:
 
     struct bufferDescriptor {
         uint64_t    usageCount; // Number of times the stored page has been accessed since it was loaded in the slot

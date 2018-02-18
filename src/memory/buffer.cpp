@@ -6,7 +6,7 @@
 
 SMILE_NS_BEGIN
 
-Buffer::Buffer( bufferId_t bId, transactionId_t tId, char* bufferSlot, bool& dirty ) noexcept {
+Buffer::Buffer( bufferId_t bId, transactionId_t tId, char* bufferSlot, bool* dirty ) noexcept {
 	m_bId = bId;
 	m_tId = tId;
 	m_bufferSlot = bufferSlot;
@@ -18,7 +18,7 @@ void Buffer::write( char* data, uint32_t numBytes, uint32_t startByte ) {
 	memcpy(dest, data, numBytes);
 
 	// Set dirty bit;
-	m_dirty = true;
+	*m_dirty = true;
 }
 
 void Buffer::read( char* data, uint32_t numBytes, uint32_t startByte ) const  {

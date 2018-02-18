@@ -43,6 +43,71 @@ TEST(BufferPoolTest, BufferPoolAlloc) {
   ASSERT_TRUE(bId == 2);
 }
 
+/**
+ * Tests reading and writing a buffer. A page is allocated to the buffer pool and then it is 
+ * pinned. Some data is written into it by using a handler and finally we read it to check that
+ * everything went well.
+ */
+TEST(BufferPoolTest, BufferPoolReadWrite) {
+  FileStorage fileStorage;
+  ASSERT_TRUE(fileStorage.create("./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
+
+  BufferPool bufferPool(&fileStorage, 4);
+
+  extentId_t eId;
+  ASSERT_TRUE(fileStorage.reserve(8,eId) == ErrorCode::E_NO_ERROR);
+
+  transactionId_t tId = 1;
+  bufferId_t bId = bufferPool.alloc(tId,1);
+  ASSERT_TRUE(bId == 0);
+  Buffer buffer = bufferPool.pin(0,tId);
+  char dataW[] = "I am writing data";
+  buffer.write(dataW, 17, 100);
+
+  char dataR[17];
+  buffer.read(dataR, 17, 100);
+  for (int i = 0; i < 17; ++i)
+  {
+    ASSERT_TRUE(dataW[i] == dataR[i]);
+  }
+}
+
+/**
+ * Tests releasing a page from the buffer pool. A page is allocated and written, so it gets
+ * dirty. Then, buffer pool is asked for release it, which makes it flush the modified
+ * page to disk. Finally, the page is pinned again to check that the changes have been correctly
+ * saved to permanent storage.
+ */
+TEST(BufferPoolTest, BufferPoolReadAfterRelease) {
+  FileStorage fileStorage;
+  ASSERT_TRUE(fileStorage.create("./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
+
+  BufferPool bufferPool(&fileStorage, 4);
+
+  extentId_t eId;
+  ASSERT_TRUE(fileStorage.reserve(8,eId) == ErrorCode::E_NO_ERROR);
+
+  transactionId_t tId = 1;
+  bufferId_t bId = bufferPool.alloc(tId,1);
+  ASSERT_TRUE(bId == 0);
+  Buffer buffer = bufferPool.pin(0,tId);
+  char dataW[] = "I am writing data";
+  buffer.write(dataW, 17, 100);
+  
+  bufferPool.release(0);
+
+  bId = bufferPool.alloc(tId,1);
+  ASSERT_TRUE(bId == 0);
+  buffer = bufferPool.pin(0,tId);
+  char dataR[17];
+  buffer.read(dataR, 17, 100);
+
+  for (int i = 0; i < 17; ++i)
+  {
+    ASSERT_TRUE(dataW[i] == dataR[i]);
+  }
+}
+
 SMILE_NS_END
 
 int main(int argc, char* argv[]){

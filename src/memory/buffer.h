@@ -11,12 +11,29 @@ SMILE_NS_BEGIN
 class BufferPool;
 
 class Buffer {
+
   public:
+
     Buffer(bufferId_t bId, transactionId_t tId, char* bufferSlot) noexcept;
+    
     ~Buffer() noexcept;
 
+    /**
+     * Write data into buffer
+     * 
+     * @param data Information to be stored into the buffer
+     * @param numBytes Number of bytes to be copied
+     * @param startByte Position of the buffer where the write operation starts
+     */
     void write(char* data, uint32_t numBytes, uint32_t startByte );
 
+    /**
+     * Read data from buffer
+     * 
+     * @param data Where the data read will be stored
+     * @param numBytes Number of bytes to be read
+     * @param startByte Position of the buffer where the read operation starts
+     */
     void read(char* data, uint32_t numBytes, uint32_t startByte ) const ;
 
   private:

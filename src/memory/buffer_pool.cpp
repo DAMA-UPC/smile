@@ -47,15 +47,16 @@ bufferId_t BufferPool::alloc( const transactionId_t tId ) noexcept {
 				// TODO
 				// Store changes to FileSystem
 			}
-
-			// TODO
-			// Reset the buffer for a new use
 		}
 		else {
-			m_descriptors[m_nextCSVictim].usageCount = usageCount - 1;
+			--m_descriptors[m_nextCSVictim].usageCount;
 		}
 		m_nextCSVictim = (m_nextCSVictim+1) % m_descriptors.size();
 	}
+
+	// Reset the buffer descriptor
+	m_descriptors[bufferId].usageCount = 0;
+	m_descriptors[bufferId].dirty = 0;
 
 	return bufferId;
 }
@@ -65,7 +66,7 @@ void BufferPool::release( const bufferId_t bId, const transactionId_t tId ) noex
 	m_allocationTable.set(bId, 0);
 
 	// If the buffer is dirty we must store it to disk
-	if( m_descriptors[m_nextCSVictim].dirty ) {
+	if( m_descriptors[bId].dirty ) {
 		// TODO
 		// Store changes to FileSystem
 	}
@@ -76,14 +77,18 @@ void BufferPool::release( const bufferId_t bId, const transactionId_t tId ) noex
 
 Buffer BufferPool::pin( const bufferId_t bId, const transactionId_t tId ) noexcept {
 	// Increment page's usage count
-	uint64_t usage = m_descriptors[m_nextCSVictim].usageCount;
-	m_descriptors[m_nextCSVictim].usageCount = usage + 1;
+	++m_descriptors[bId].usageCount;
 	
 	// Set the handler with corresponding buffer slot
 	char* bufferSlot = m_pool + (m_bufferSize*bId);
 	Buffer buffer(bId, tId, bufferSlot);
 
 	return buffer;	
+}
+
+void BufferPool::unpin( const bufferId_t bId ) noexcept {
+	// Decrement page's usage count
+	--m_descriptors[bId].usageCount;
 }
 
 void BufferPool::checkpoint() noexcept {

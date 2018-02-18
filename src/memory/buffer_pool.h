@@ -58,6 +58,14 @@ class BufferPool {
     Buffer pin( const bufferId_t bId, const transactionId_t tId ) noexcept;
 
     /**
+     * Unpins the buffer
+     * @details [long description]
+     * 
+     * @param The bId of the buffer to unpin
+     */
+    void unpin( const bufferId_t bId ) noexcept;
+
+    /**
      * Checkpoints the BufferPool to the storage
      **/
     void checkpoint() noexcept;

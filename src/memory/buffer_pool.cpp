@@ -44,8 +44,7 @@ bufferId_t BufferPool::alloc( const transactionId_t tId, const extentId_t extent
 
 			// If the buffer is dirty we must store it to disk
 			if( m_descriptors[bufferId].dirty ) {
-				char* data = m_pool + (m_bufferSize*bufferId);
-				m_storage->write(data, m_descriptors[bufferId].extentId);
+				m_storage->write(getBuffer(bufferId), m_descriptors[bufferId].extentId);
 			}
 		}
 		else {
@@ -60,8 +59,7 @@ bufferId_t BufferPool::alloc( const transactionId_t tId, const extentId_t extent
 	m_descriptors[bufferId].extentId = extentId;
 
 	// Load page into Buffer Pool
-	char* dest = m_pool + (m_bufferSize*bufferId);
-	m_storage->read(dest, extentId);
+	m_storage->read(getBuffer(bufferId), extentId);
 
 	return bufferId;
 }
@@ -72,8 +70,7 @@ void BufferPool::release( const bufferId_t bId, const transactionId_t tId ) noex
 
 	// If the buffer is dirty we must store it to disk
 	if( m_descriptors[bId].dirty ) {
-		char* data = m_pool + (m_bufferSize*bId);
-		m_storage->write(data, m_descriptors[bId].extentId);
+		m_storage->write(getBuffer(bId), m_descriptors[bId].extentId);
 	}
 }
 
@@ -81,10 +78,8 @@ Buffer BufferPool::pin( const bufferId_t bId, const transactionId_t tId ) noexce
 	// Increment page's usage count
 	++m_descriptors[bId].usageCount;
 	
-	// Set the handler with corresponding buffer slot
-	char* bufferSlot = m_pool + (m_bufferSize*bId);
-	Buffer buffer(bId, tId, bufferSlot);
-
+	// Return a handler for the corresponding buffer slot
+	Buffer buffer(bId, tId, getBuffer(bId));
 	return buffer;	
 }
 
@@ -95,6 +90,11 @@ void BufferPool::unpin( const bufferId_t bId ) noexcept {
 
 void BufferPool::checkpoint() noexcept {
 
+}
+
+char* BufferPool::getBuffer( const bufferId_t bId ) noexcept {
+	char* buffer = m_pool + (m_bufferSize*bId);
+	return buffer;
 }
 
 SMILE_NS_END

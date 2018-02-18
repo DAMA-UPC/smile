@@ -70,6 +70,14 @@ class BufferPool {
      **/
     void checkpoint() noexcept;
 
+    /**
+     * Get a pointer to the specified buffer slot
+     * 
+     * @param bId bufferId_t of the buffer to get a pointer to
+     * @return Pointer to bId buffer 
+     */
+    char* getBuffer( const bufferId_t bId ) noexcept;
+
   private:
 
     struct bufferDescriptor {
@@ -94,7 +102,7 @@ class BufferPool {
     std::vector<bufferDescriptor> m_descriptors;
 
     /**
-     * Size of a Buffer Pool slot in KB
+     * Size of a Buffer Pool slot in Bytes
      */
     uint64_t m_bufferSize;
 

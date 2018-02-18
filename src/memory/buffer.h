@@ -16,7 +16,7 @@ class Buffer {
 
     Buffer( bufferId_t bId, transactionId_t tId, char* bufferSlot, bool& dirty ) noexcept;
     
-    ~Buffer() noexcept;
+    ~Buffer() noexcept = default;
 
     /**
      * Write data into buffer

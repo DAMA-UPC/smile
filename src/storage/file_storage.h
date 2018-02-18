@@ -79,14 +79,14 @@ class FileStorage {
      * */
     const FileStorageConfig& config() const noexcept;
 
-  private:
-
     /**
      * Gets the extent size in bytes
      *
      * @return The extent size in bytes
      **/
     uint32_t getExtentSize() const noexcept;
+    
+  private:
 
     /**
      * Converts a position in a file in bytes to their extentId counterpart

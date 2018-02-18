@@ -14,11 +14,13 @@
 SMILE_NS_BEGIN
 
 class BufferPool {
+
   public:
+
     SMILE_NON_COPYABLE(BufferPool);
     friend class Buffer;
 
-    BufferPool(FileStorage* storage, uint64_t poolSize = 128, uint64_t bufferSize = 4096) noexcept;
+    BufferPool(FileStorage* storage, uint64_t poolSize = 128) noexcept;
     ~BufferPool() noexcept = default;
 
     /**
@@ -60,12 +62,6 @@ class BufferPool {
      **/
     void checkpoint() noexcept;
 
-    /**
-     * Gets the size of a buffer in KB
-     * @return The size of a buffer in KB
-     **/
-    uint64_t bufferSizeKB() const noexcept;
-
   private:
 
     struct bufferDescriptor {
@@ -81,9 +77,7 @@ class BufferPool {
     /**
      * Buffer pool
      */
-    // TODO
-    // Declare a buffer pool
-    // std::vector<Buffer> m_pool;
+    char* m_pool;
 
     /**
      * Buffer descriptors (metadata)

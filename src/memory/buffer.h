@@ -12,7 +12,7 @@ class BufferPool;
 
 class Buffer {
   public:
-    Buffer( bufferId_t m_bId, transactionId_t m_tId ) noexcept;
+    Buffer(bufferId_t bId, transactionId_t tId, char* bufferSlot) noexcept;
     ~Buffer() noexcept;
 
     void write(char* data, uint32_t numBytes, uint32_t startByte );
@@ -21,10 +21,25 @@ class Buffer {
 
   private:
 
+    /**
+     * ???
+     */
     char*           m_shadow;
+
+    /**
+     * ID of the buffer accessed by the handler
+     */
     bufferId_t      m_bId;
+
+    /**
+     * ID of the transaction using the handler
+     */
     transactionId_t m_tId;
-    // falta punter a la estructura interna de la buffer pool
+
+    /**
+     * Pointer to buffer ID from the Buffer Pool
+     */
+    char*           m_bufferSlot; 
 };
 
 SMILE_NS_END

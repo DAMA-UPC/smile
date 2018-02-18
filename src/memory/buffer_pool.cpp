@@ -4,11 +4,12 @@
 
 SMILE_NS_BEGIN
 
-BufferPool::BufferPool(FileStorage* storage, uint64_t poolSize, uint64_t bufferSize) noexcept {
+BufferPool::BufferPool(FileStorage* storage, uint64_t poolSize) noexcept {
 	m_storage = storage;
-	//m_pool.resize(poolSize);
+	uint32_t extentSize = m_storage->getExtentSize();
+	m_pool = (char*) malloc( poolSize*extentSize*sizeof(char) );
 	m_descriptors.resize(poolSize);
-	m_bufferSize = bufferSize;
+	m_bufferSize = extentSize;
 	m_allocationTable.resize(poolSize);
 	m_nextCSVictim = 0;
 }
@@ -51,7 +52,7 @@ bufferId_t BufferPool::alloc( const transactionId_t tId ) noexcept {
 			// Reset the buffer for a new use
 		}
 		else {
-			m_descriptors[m_nextCSVictim].usageCount = usageCount + 1;
+			m_descriptors[m_nextCSVictim].usageCount = usageCount - 1;
 		}
 		m_nextCSVictim = (m_nextCSVictim+1) % m_descriptors.size();
 	}
@@ -74,21 +75,19 @@ void BufferPool::release( const bufferId_t bId, const transactionId_t tId ) noex
 }
 
 Buffer BufferPool::pin( const bufferId_t bId, const transactionId_t tId ) noexcept {
+	// Increment page's usage count
 	uint64_t usage = m_descriptors[m_nextCSVictim].usageCount;
+	m_descriptors[m_nextCSVictim].usageCount = usage + 1;
 	
-	// TODO
-	// Fill a buffer correctly
-	Buffer buffer(bId, tId);
+	// Set the handler with corresponding buffer slot
+	char* bufferSlot = m_pool + (m_bufferSize*bId);
+	Buffer buffer(bId, tId, bufferSlot);
 
 	return buffer;	
 }
 
 void BufferPool::checkpoint() noexcept {
 
-}
-
-uint64_t BufferPool::bufferSizeKB() const noexcept {
-	return m_bufferSize;
 }
 
 SMILE_NS_END

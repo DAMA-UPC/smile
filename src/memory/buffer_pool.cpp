@@ -22,7 +22,7 @@ void BufferPool::commitTransaction( const transactionId_t tId ) {
 
 }
 
-bufferId_t BufferPool::alloc( const transactionId_t tId ) noexcept {
+bufferId_t BufferPool::alloc( const transactionId_t tId, const extentId_t extentId  ) noexcept {
 	bool found = false;
 	bufferId_t bufferId;
 
@@ -43,9 +43,9 @@ bufferId_t BufferPool::alloc( const transactionId_t tId ) noexcept {
 			found = true;
 
 			// If the buffer is dirty we must store it to disk
-			if( m_descriptors[m_nextCSVictim].dirty ) {
-				// TODO
-				// Store changes to FileSystem
+			if( m_descriptors[bufferId].dirty ) {
+				char* data = m_pool + (m_bufferSize*bufferId);
+				m_storage->write(data, m_descriptors[bufferId].extentId);
 			}
 		}
 		else {
@@ -54,9 +54,14 @@ bufferId_t BufferPool::alloc( const transactionId_t tId ) noexcept {
 		m_nextCSVictim = (m_nextCSVictim+1) % m_descriptors.size();
 	}
 
-	// Reset the buffer descriptor
+	// Fill the buffer descriptor
 	m_descriptors[bufferId].usageCount = 0;
 	m_descriptors[bufferId].dirty = 0;
+	m_descriptors[bufferId].extentId = extentId;
+
+	// Load page into Buffer Pool
+	char* dest = m_pool + (m_bufferSize*bufferId);
+	m_storage->read(dest, extentId);
 
 	return bufferId;
 }
@@ -67,12 +72,9 @@ void BufferPool::release( const bufferId_t bId, const transactionId_t tId ) noex
 
 	// If the buffer is dirty we must store it to disk
 	if( m_descriptors[bId].dirty ) {
-		// TODO
-		// Store changes to FileSystem
+		char* data = m_pool + (m_bufferSize*bId);
+		m_storage->write(data, m_descriptors[bId].extentId);
 	}
-
-	// TODO
-	// Reset the buffer for a new use
 }
 
 Buffer BufferPool::pin( const bufferId_t bId, const transactionId_t tId ) noexcept {

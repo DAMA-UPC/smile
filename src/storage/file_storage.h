@@ -62,7 +62,6 @@ class FileStorage {
      * Unlocks the given extent
      * @param in data The buffer where the extent was locked
      * @param in extent The extent to unlock
-     * @param in drity Whether to write the extent to disk or not.
      * @return false if the unlock was unsuccessful. true otherwise.
      **/
     ErrorCode write( const char* data, const extentId_t extent ) noexcept;
@@ -85,7 +84,7 @@ class FileStorage {
      * @return The extent size in bytes
      **/
     uint32_t getExtentSize() const noexcept;
-    
+
   private:
 
     /**

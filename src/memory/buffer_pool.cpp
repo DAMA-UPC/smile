@@ -6,10 +6,10 @@ SMILE_NS_BEGIN
 
 BufferPool::BufferPool(FileStorage* storage, uint64_t poolSize) noexcept {
 	m_storage = storage;
-	uint32_t extentSize = m_storage->getExtentSize();
-	m_pool = (char*) malloc( poolSize*extentSize*sizeof(char) );
+	uint32_t pageSize = m_storage->getPageSize();
+	m_pool = (char*) malloc( poolSize*pageSize*sizeof(char) );
 	m_descriptors.resize(poolSize);
-	m_bufferSize = extentSize;
+	m_pageSize = pageSize;
 	m_allocationTable.resize(poolSize);
 	m_nextCSVictim = 0;
 }
@@ -22,7 +22,7 @@ void BufferPool::commitTransaction( const transactionId_t tId ) {
 
 }
 
-bufferId_t BufferPool::alloc( const transactionId_t tId, const extentId_t extentId  ) noexcept {
+bufferId_t BufferPool::alloc( const transactionId_t tId, const pageId_t pageId  ) noexcept {
 	bool found = false;
 	bufferId_t bufferId;
 
@@ -44,7 +44,7 @@ bufferId_t BufferPool::alloc( const transactionId_t tId, const extentId_t extent
 
 			// If the buffer is dirty we must store it to disk
 			if( m_descriptors[bufferId].dirty ) {
-				m_storage->write(getBuffer(bufferId), m_descriptors[bufferId].extentId);
+				m_storage->write(getBuffer(bufferId), m_descriptors[bufferId].pageId);
 			}
 		}
 		else {
@@ -56,21 +56,23 @@ bufferId_t BufferPool::alloc( const transactionId_t tId, const extentId_t extent
 	// Fill the buffer descriptor
 	m_descriptors[bufferId].usageCount = 0;
 	m_descriptors[bufferId].dirty = 0;
-	m_descriptors[bufferId].extentId = extentId;
+	m_descriptors[bufferId].pageId = pageId;
 
 	// Load page into Buffer Pool
-	m_storage->read(getBuffer(bufferId), extentId);
+	// TODO: call find_empty_slot
+	//m_storage->read(getBuffer(bufferId), pageId);
 
 	return bufferId;
 }
 
+// TODO: remove from disk
 void BufferPool::release( const bufferId_t bId ) noexcept {
 	// Set buffer as not allocated
 	m_allocationTable.set(bId, 0);
 
 	// If the buffer is dirty we must store it to disk
 	if( m_descriptors[bId].dirty ) {
-		m_storage->write(getBuffer(bId), m_descriptors[bId].extentId);
+		m_storage->write(getBuffer(bId), m_descriptors[bId].pageId);
 	}
 }
 
@@ -93,7 +95,7 @@ void BufferPool::checkpoint() noexcept {
 }
 
 char* BufferPool::getBuffer( const bufferId_t bId ) noexcept {
-	char* buffer = m_pool + (m_bufferSize*bId);
+	char* buffer = m_pool + (m_pageSize*bId);
 	return buffer;
 }
 

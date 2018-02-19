@@ -20,6 +20,7 @@ class BufferPool {
     SMILE_NON_COPYABLE(BufferPool);
     friend class Buffer;
 
+    // TODO: BP config 
     BufferPool(FileStorage* storage, uint64_t poolSize = 128) noexcept;
     ~BufferPool() noexcept = default;
 
@@ -38,10 +39,10 @@ class BufferPool {
     /**
      * Allocates a buffer
      * @param The id of the transaction this allocation belongs to
-     * @param The extentId_t to be allocated
+     * @param The pageId_t to be allocated
      * @return The id of the allocated buffer
      **/
-    bufferId_t alloc( const transactionId_t tId, const extentId_t extentId ) noexcept;
+    bufferId_t alloc( const transactionId_t tId, const pageId_t pageId ) noexcept;
 
     /**
      * Releases a buffer
@@ -80,10 +81,11 @@ class BufferPool {
      */
     char* getBuffer( const bufferId_t bId ) noexcept;
 
+    // TODO: constructor and m_ prefix
     struct bufferDescriptor {
         uint64_t    usageCount; // Number of times the stored page has been accessed since it was loaded in the slot
         bool        dirty;      // Whether the buffer is dirty or not
-        extentId_t  extentId;   // extenId_t on disk of the loaded page
+        pageId_t    pageId;     // extenId_t on disk of the loaded page
     };
 
     /**
@@ -104,7 +106,7 @@ class BufferPool {
     /**
      * Size of a Buffer Pool slot in Bytes
      */
-    uint64_t m_bufferSize;
+    uint64_t m_pageSize;
 
     /**
      * Bitset representing whether a Buffer Pool slot is allocated (1) or not (0)

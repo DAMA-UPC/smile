@@ -16,8 +16,8 @@ TEST(BufferPoolTest, BufferPoolAlloc) {
 
   BufferPool bufferPool(&fileStorage, 4);
 
-  extentId_t eId;
-  ASSERT_TRUE(fileStorage.reserve(8,eId) == ErrorCode::E_NO_ERROR);
+  pageId_t pId;
+  ASSERT_TRUE(fileStorage.reserve(8,pId) == ErrorCode::E_NO_ERROR);
 
   transactionId_t tId = 1;
   bufferId_t bId = bufferPool.alloc(tId,1);
@@ -54,8 +54,8 @@ TEST(BufferPoolTest, BufferPoolReadWrite) {
 
   BufferPool bufferPool(&fileStorage, 4);
 
-  extentId_t eId;
-  ASSERT_TRUE(fileStorage.reserve(8,eId) == ErrorCode::E_NO_ERROR);
+  pageId_t pId;
+  ASSERT_TRUE(fileStorage.reserve(8,pId) == ErrorCode::E_NO_ERROR);
 
   transactionId_t tId = 1;
   bufferId_t bId = bufferPool.alloc(tId,1);
@@ -84,8 +84,8 @@ TEST(BufferPoolTest, BufferPoolReadAfterRelease) {
 
   BufferPool bufferPool(&fileStorage, 4);
 
-  extentId_t eId;
-  ASSERT_TRUE(fileStorage.reserve(8,eId) == ErrorCode::E_NO_ERROR);
+  pageId_t pId;
+  ASSERT_TRUE(fileStorage.reserve(8,pId) == ErrorCode::E_NO_ERROR);
 
   transactionId_t tId = 1;
   bufferId_t bId = bufferPool.alloc(tId,1);

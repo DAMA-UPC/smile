@@ -21,9 +21,9 @@ ErrorCode FileStorage::open( const std::string& path ) noexcept {
   }
   m_file.seekg(0,std::ios_base::beg);
   m_file.read(reinterpret_cast<char*>(&m_config), sizeof(m_config));
-  m_extentFiller.resize(getExtentSize(),'\0');
+  m_pageFiller.resize(getPageSize(),'\0');
   m_file.seekg(0,std::ios_base::end);
-  m_size = bytesToExtent(m_file.tellg());
+  m_size = bytesToPage(m_file.tellg());
   return ErrorCode::E_NO_ERROR;
 }
 
@@ -37,9 +37,9 @@ ErrorCode FileStorage::create( const std::string& path, const FileStorageConfig&
     return ErrorCode::E_STORAGE_INVALID_PATH;
   }
   m_config = config;
-  m_extentFiller.resize(getExtentSize(),'\0');
-  extentId_t eid;
-  reserve(1,eid);
+  m_pageFiller.resize(getPageSize(),'\0');
+  pageId_t pid;
+  reserve(1,pid);
   m_file.seekp(0,std::ios_base::beg);
   m_file.write(reinterpret_cast<char*>(&m_config), sizeof(m_config));
   m_file.flush();
@@ -57,45 +57,45 @@ ErrorCode FileStorage::close() noexcept {
   return ErrorCode::E_STORAGE_NOT_OPEN;
 }
 
-ErrorCode FileStorage::reserve( const uint32_t numExtents, extentId_t& extent ) noexcept {
+ErrorCode FileStorage::reserve( const uint32_t numPages, pageId_t& pageId ) noexcept {
   m_file.seekp(0,std::ios_base::end);
   if(!m_file) {
     return ErrorCode::E_STORAGE_CRITICAL_ERROR;
   }
-  extent = bytesToExtent(m_file.tellp());
-  m_file.seekp(extentToBytes((numExtents-1)),std::ios_base::end);
-  m_file.write(m_extentFiller.data(), m_extentFiller.size());
+  pageId = bytesToPage(m_file.tellp());
+  m_file.seekp(pageToBytes((numPages-1)),std::ios_base::end);
+  m_file.write(m_pageFiller.data(), m_pageFiller.size());
   if(!m_file) {
     return ErrorCode::E_STORAGE_OUT_OF_BOUNDS_WRITE;
   }
-  m_size = bytesToExtent(m_file.tellp());
+  m_size = bytesToPage(m_file.tellp());
   return ErrorCode::E_NO_ERROR;
 }
 
-ErrorCode FileStorage::read( char* data, const extentId_t extent ) noexcept {
-  if(extent == 0 || extent >= m_size) {
-    return ErrorCode::E_STORAGE_OUT_OF_BOUNDS_EXTENT;
+ErrorCode FileStorage::read( char* data, const pageId_t pageId ) noexcept {
+  if(pageId == 0 || pageId >= m_size) {
+    return ErrorCode::E_STORAGE_OUT_OF_BOUNDS_PAGE;
   }
-  m_file.seekg(extentToBytes(extent), std::ios_base::beg);
+  m_file.seekg(pageToBytes(pageId), std::ios_base::beg);
   if(!m_file) {
-    return ErrorCode::E_STORAGE_OUT_OF_BOUNDS_EXTENT;
+    return ErrorCode::E_STORAGE_OUT_OF_BOUNDS_PAGE;
   }
-  m_file.read(data,getExtentSize());
+  m_file.read(data,getPageSize());
   if(!m_file) {
     return ErrorCode::E_STORAGE_OUT_OF_BOUNDS_READ;
   }
   return ErrorCode::E_NO_ERROR;
 }
 
-ErrorCode FileStorage::write( const char* data, const extentId_t extent ) noexcept {
-  if(extent == 0 || extent >= m_size) {
-    return ErrorCode::E_STORAGE_OUT_OF_BOUNDS_EXTENT;
+ErrorCode FileStorage::write( const char* data, const pageId_t pageId ) noexcept {
+  if(pageId == 0 || pageId >= m_size) {
+    return ErrorCode::E_STORAGE_OUT_OF_BOUNDS_PAGE;
   }
-  m_file.seekp(extentToBytes(extent), std::ios_base::beg);
+  m_file.seekp(pageToBytes(pageId), std::ios_base::beg);
   if(!m_file) {
-    return ErrorCode::E_STORAGE_OUT_OF_BOUNDS_EXTENT;
+    return ErrorCode::E_STORAGE_OUT_OF_BOUNDS_PAGE;
   }
-  m_file.write(data,getExtentSize());
+  m_file.write(data,getPageSize());
   if(!m_file) {
     return ErrorCode::E_STORAGE_OUT_OF_BOUNDS_WRITE;
   }
@@ -111,16 +111,16 @@ const FileStorageConfig& FileStorage::config() const noexcept {
 }
 
 
-uint32_t FileStorage::getExtentSize() const noexcept {
-  return m_config.m_extentSizeKB*1024;
+uint32_t FileStorage::getPageSize() const noexcept {
+  return m_config.m_pageSizeKB*1024;
 }
 
-extentId_t FileStorage::bytesToExtent( const uint64_t bytes ) const noexcept {
-  return bytes / getExtentSize();
+pageId_t FileStorage::bytesToPage( const uint64_t bytes ) const noexcept {
+  return bytes / getPageSize();
 }
 
-uint64_t FileStorage::extentToBytes( const extentId_t extent ) const noexcept {
-  return extent * getExtentSize();
+uint64_t FileStorage::pageToBytes( const pageId_t pageId ) const noexcept {
+  return pageId * getPageSize();
 }
 
 SMILE_NS_END

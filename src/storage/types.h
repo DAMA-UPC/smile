@@ -9,7 +9,7 @@
 
 SMILE_NS_BEGIN
 
-using extentId_t = uint64_t;
+using pageId_t = uint64_t;
 
 SMILE_NS_END
 

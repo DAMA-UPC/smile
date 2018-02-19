@@ -3,6 +3,8 @@
 
 SMILE_NS_BEGIN
 
+#if 0
+
 /**
  * Tests Buffer Pool allocations. We first reserve space in the FileStorage for 8 pages and
  * declare a 4-slot (256 KB) Buffer Pool. Then, we ask for allocating the 4 first ones into the pool.
@@ -107,6 +109,8 @@ TEST(BufferPoolTest, BufferPoolReadAfterRelease) {
     ASSERT_TRUE(dataW[i] == dataR[i]);
   }
 }
+
+#endif
 
 SMILE_NS_END
 

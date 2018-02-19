@@ -14,14 +14,6 @@ BufferPool::BufferPool(FileStorage* storage, uint64_t poolSize) noexcept {
 	m_nextCSVictim = 0;
 }
 
-transactionId_t BufferPool::beginTransaction() {
-
-}
-
-void BufferPool::commitTransaction( const transactionId_t tId ) {
-
-}
-
 bufferId_t BufferPool::alloc( const transactionId_t tId, const pageId_t pageId  ) noexcept {
 	bool found = false;
 	bufferId_t bufferId;

@@ -25,18 +25,6 @@ class BufferPool {
     ~BufferPool() noexcept = default;
 
     /**
-     * Starts a transaction
-     * @return The id of the transaction
-     **/
-    transactionId_t beginTransaction();
-
-    /**
-     * Commits a transaction
-     * @param in tId The id of the transaction to commit
-     **/
-    void commitTransaction( const transactionId_t tId );
-
-    /**
      * Allocates a buffer
      * @param The id of the transaction this allocation belongs to
      * @param The pageId_t to be allocated

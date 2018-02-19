@@ -4,13 +4,14 @@
 
 SMILE_NS_BEGIN
 
-BufferPool::BufferPool(FileStorage* storage, uint64_t poolSize) noexcept {
+BufferPool::BufferPool(FileStorage* storage, const BufferPoolConfig& config) noexcept {
 	p_storage = storage;
-	uint32_t pageSize = p_storage->getPageSize();
-	p_pool = (char*) malloc( poolSize*pageSize*sizeof(char) );
-	m_descriptors.resize(poolSize);
-	m_pageSize = pageSize;
-	m_allocationTable.resize(poolSize);
+	p_pool = (char*) malloc( config.m_poolSizeKB*1024*sizeof(char) );
+
+	uint32_t pageSizeKB = p_storage->getPageSize() / 1024;
+	uint32_t poolElems = config.m_poolSizeKB / pageSizeKB;
+	m_descriptors.resize(poolElems);
+	m_allocationTable.resize(poolElems);
 	m_nextCSVictim = 0;
 }
 
@@ -87,7 +88,7 @@ void BufferPool::checkpoint() noexcept {
 }
 
 char* BufferPool::getBuffer( const bufferId_t bId ) noexcept {
-	char* buffer = p_pool + (m_pageSize*bId);
+	char* buffer = p_pool + (p_storage->getPageSize()*bId);
 	return buffer;
 }
 

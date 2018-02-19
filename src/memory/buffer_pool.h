@@ -13,15 +13,20 @@
 
 SMILE_NS_BEGIN
 
+struct BufferPoolConfig {
+  uint32_t  m_poolSizeKB = 1024*1024;   // 1 GB
+};
+
 class BufferPool {
 
   public:
 
     SMILE_NON_COPYABLE(BufferPool);
+
     friend class Buffer;
 
-    // TODO: BP config 
-    BufferPool(FileStorage* storage, uint64_t poolSize = 128) noexcept;
+    BufferPool(FileStorage* storage, const BufferPoolConfig& config) noexcept;
+
     ~BufferPool() noexcept = default;
 
     /**
@@ -89,11 +94,6 @@ class BufferPool {
      * Buffer descriptors (metadata)
      */
     std::vector<bufferDescriptor> m_descriptors;
-
-    /**
-     * Size of a Buffer Pool slot in Bytes
-     */
-    uint64_t m_pageSize;
 
     /**
      * Bitset representing whether a Buffer Pool slot is allocated (1) or not (0)

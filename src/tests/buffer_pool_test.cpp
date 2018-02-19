@@ -5,7 +5,7 @@ SMILE_NS_BEGIN
 
 /**
  * Tests Buffer Pool allocations. We first reserve space in the FileStorage for 8 pages and
- * declare a 4-slot Buffer Pool. Then, we ask for allocating the 4 first ones into the pool.
+ * declare a 4-slot (256 KB) Buffer Pool. Then, we ask for allocating the 4 first ones into the pool.
  * With the pool full, we try to allocate space for the other 4 pages and check that the 
  * slots are being reused. Finally, a couple of buffers are pinned to see that the Clock
  * Sweep Algorithm is behaving as expected.
@@ -14,7 +14,7 @@ TEST(BufferPoolTest, BufferPoolAlloc) {
   FileStorage fileStorage;
   ASSERT_TRUE(fileStorage.create("./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
 
-  BufferPool bufferPool(&fileStorage, 4);
+  BufferPool bufferPool(&fileStorage, BufferPoolConfig{256});
 
   pageId_t pId;
   ASSERT_TRUE(fileStorage.reserve(8,pId) == ErrorCode::E_NO_ERROR);
@@ -52,7 +52,7 @@ TEST(BufferPoolTest, BufferPoolReadWrite) {
   FileStorage fileStorage;
   ASSERT_TRUE(fileStorage.create("./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
 
-  BufferPool bufferPool(&fileStorage, 4);
+  BufferPool bufferPool(&fileStorage, BufferPoolConfig{});
 
   pageId_t pId;
   ASSERT_TRUE(fileStorage.reserve(8,pId) == ErrorCode::E_NO_ERROR);
@@ -82,7 +82,7 @@ TEST(BufferPoolTest, BufferPoolReadAfterRelease) {
   FileStorage fileStorage;
   ASSERT_TRUE(fileStorage.create("./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
 
-  BufferPool bufferPool(&fileStorage, 4);
+  BufferPool bufferPool(&fileStorage, BufferPoolConfig{});
 
   pageId_t pId;
   ASSERT_TRUE(fileStorage.reserve(8,pId) == ErrorCode::E_NO_ERROR);

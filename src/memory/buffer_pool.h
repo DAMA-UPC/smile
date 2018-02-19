@@ -74,6 +74,14 @@ class BufferPool {
      */
     char* getBuffer( const bufferId_t bId ) noexcept;
 
+    /**
+     * Returns the bufferId_t of an empty buffer pool slot. In case none is free
+     * Clock Sweep algorithm is performed to evict a page.
+     * 
+     * @return bufferId_t of the free pool slot.
+     */
+    bufferId_t getEmptySlot() noexcept;
+
     struct bufferDescriptor {
         uint64_t    m_usageCount    = 0; // Number of times the stored page has been accessed since it was loaded in the slot
         bool        m_dirty         = 0; // Whether the buffer is dirty or not

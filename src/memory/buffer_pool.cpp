@@ -16,46 +16,14 @@ BufferPool::BufferPool(FileStorage* storage, const BufferPoolConfig& config) noe
 }
 
 bufferId_t BufferPool::alloc( const transactionId_t tId, const pageId_t pageId  ) noexcept {
-	bool found = false;
-	bufferId_t bufferId;
-
-	// Look for an empty Buffer Pool slot
-	for (int i = 0; i < m_allocationTable.size() && !found; ++i) {
-		if (!m_allocationTable.test(i)) {
-			m_allocationTable.set(i);
-			bufferId = i;
-			found = true;
-		}
-	}
-
-	// If there is no empty slot, use Clock Sweep algorithm to find a victim.
-	while (!found) {
-		uint64_t usageCount = m_descriptors[m_nextCSVictim].m_usageCount;
-		if ( usageCount == 0 ) {
-			bufferId = m_nextCSVictim;
-			found = true;
-
-			// If the buffer is dirty we must store it to disk
-			if( m_descriptors[bufferId].m_dirty ) {
-				p_storage->write(getBuffer(bufferId), m_descriptors[bufferId].m_pageId);
-			}
-		}
-		else {
-			--m_descriptors[m_nextCSVictim].m_usageCount;
-		}
-		m_nextCSVictim = (m_nextCSVictim+1) % m_descriptors.size();
-	}
+	bufferId_t bId = getEmptySlot();	
 
 	// Fill the buffer descriptor
-	m_descriptors[bufferId].m_usageCount = 0;
-	m_descriptors[bufferId].m_dirty = 0;
-	m_descriptors[bufferId].m_pageId = pageId;
+	m_descriptors[bId].m_usageCount = 0;
+	m_descriptors[bId].m_dirty = 0;
+	m_descriptors[bId].m_pageId = pageId;
 
-	// Load page into Buffer Pool
-	// TODO: call find_empty_slot
-	//p_storage->read(getBuffer(bufferId), pageId);
-
-	return bufferId;
+	return bId;
 }
 
 // TODO: remove from disk
@@ -92,5 +60,38 @@ char* BufferPool::getBuffer( const bufferId_t bId ) noexcept {
 	return buffer;
 }
 
+bufferId_t BufferPool::getEmptySlot() noexcept {
+	bufferId_t bufferId;
+	bool found = false;
+
+	// Look for an empty Buffer Pool slot
+	for (int i = 0; i < m_allocationTable.size() && !found; ++i) {
+		if (!m_allocationTable.test(i)) {
+			m_allocationTable.set(i);
+			bufferId = i;
+			found = true;
+		}
+	}
+
+	// If there is no empty slot, use Clock Sweep algorithm to find a victim.
+	while (!found) {
+		uint64_t usageCount = m_descriptors[m_nextCSVictim].m_usageCount;
+		if ( usageCount == 0 ) {
+			bufferId = m_nextCSVictim;
+			found = true;
+
+			// If the buffer is dirty we must store it to disk
+			if( m_descriptors[bufferId].m_dirty ) {
+				p_storage->write(getBuffer(bufferId), m_descriptors[bufferId].m_pageId);
+			}
+		}
+		else {
+			--m_descriptors[m_nextCSVictim].m_usageCount;
+		}
+		m_nextCSVictim = (m_nextCSVictim+1) % m_descriptors.size();
+	}
+
+	return bufferId;
+}
 SMILE_NS_END
 

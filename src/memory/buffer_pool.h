@@ -69,22 +69,21 @@ class BufferPool {
      */
     char* getBuffer( const bufferId_t bId ) noexcept;
 
-    // TODO: constructor and m_ prefix
     struct bufferDescriptor {
-        uint64_t    usageCount; // Number of times the stored page has been accessed since it was loaded in the slot
-        bool        dirty;      // Whether the buffer is dirty or not
-        pageId_t    pageId;     // extenId_t on disk of the loaded page
+        uint64_t    m_usageCount    = 0; // Number of times the stored page has been accessed since it was loaded in the slot
+        bool        m_dirty         = 0; // Whether the buffer is dirty or not
+        pageId_t    m_pageId        = 0; // extenId_t on disk of the loaded page
     };
 
     /**
      * The file storage where this buffer pool will be persisted
      **/
-    FileStorage* m_storage;
+    FileStorage* p_storage;
 
     /**
      * Buffer pool
      */
-    char* m_pool;
+    char* p_pool;
 
     /**
      * Buffer descriptors (metadata)

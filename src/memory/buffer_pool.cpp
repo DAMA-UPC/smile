@@ -5,9 +5,9 @@
 SMILE_NS_BEGIN
 
 BufferPool::BufferPool(FileStorage* storage, uint64_t poolSize) noexcept {
-	m_storage = storage;
-	uint32_t pageSize = m_storage->getPageSize();
-	m_pool = (char*) malloc( poolSize*pageSize*sizeof(char) );
+	p_storage = storage;
+	uint32_t pageSize = p_storage->getPageSize();
+	p_pool = (char*) malloc( poolSize*pageSize*sizeof(char) );
 	m_descriptors.resize(poolSize);
 	m_pageSize = pageSize;
 	m_allocationTable.resize(poolSize);
@@ -29,30 +29,30 @@ bufferId_t BufferPool::alloc( const transactionId_t tId, const pageId_t pageId  
 
 	// If there is no empty slot, use Clock Sweep algorithm to find a victim.
 	while (!found) {
-		uint64_t usageCount = m_descriptors[m_nextCSVictim].usageCount;
+		uint64_t usageCount = m_descriptors[m_nextCSVictim].m_usageCount;
 		if ( usageCount == 0 ) {
 			bufferId = m_nextCSVictim;
 			found = true;
 
 			// If the buffer is dirty we must store it to disk
-			if( m_descriptors[bufferId].dirty ) {
-				m_storage->write(getBuffer(bufferId), m_descriptors[bufferId].pageId);
+			if( m_descriptors[bufferId].m_dirty ) {
+				p_storage->write(getBuffer(bufferId), m_descriptors[bufferId].m_pageId);
 			}
 		}
 		else {
-			--m_descriptors[m_nextCSVictim].usageCount;
+			--m_descriptors[m_nextCSVictim].m_usageCount;
 		}
 		m_nextCSVictim = (m_nextCSVictim+1) % m_descriptors.size();
 	}
 
 	// Fill the buffer descriptor
-	m_descriptors[bufferId].usageCount = 0;
-	m_descriptors[bufferId].dirty = 0;
-	m_descriptors[bufferId].pageId = pageId;
+	m_descriptors[bufferId].m_usageCount = 0;
+	m_descriptors[bufferId].m_dirty = 0;
+	m_descriptors[bufferId].m_pageId = pageId;
 
 	// Load page into Buffer Pool
 	// TODO: call find_empty_slot
-	//m_storage->read(getBuffer(bufferId), pageId);
+	//p_storage->read(getBuffer(bufferId), pageId);
 
 	return bufferId;
 }
@@ -63,23 +63,23 @@ void BufferPool::release( const bufferId_t bId ) noexcept {
 	m_allocationTable.set(bId, 0);
 
 	// If the buffer is dirty we must store it to disk
-	if( m_descriptors[bId].dirty ) {
-		m_storage->write(getBuffer(bId), m_descriptors[bId].pageId);
+	if( m_descriptors[bId].m_dirty ) {
+		p_storage->write(getBuffer(bId), m_descriptors[bId].m_pageId);
 	}
 }
 
 Buffer BufferPool::pin( const bufferId_t bId, const transactionId_t tId ) noexcept {
 	// Increment page's usage count
-	++m_descriptors[bId].usageCount;
+	++m_descriptors[bId].m_usageCount;
 	
 	// Return a handler for the corresponding buffer slot
-	Buffer buffer(bId, tId, getBuffer(bId), &m_descriptors[bId].dirty);
+	Buffer buffer(bId, tId, getBuffer(bId), &m_descriptors[bId].m_dirty);
 	return buffer;	
 }
 
 void BufferPool::unpin( const bufferId_t bId ) noexcept {
 	// Decrement page's usage count
-	--m_descriptors[bId].usageCount;
+	--m_descriptors[bId].m_usageCount;
 }
 
 void BufferPool::checkpoint() noexcept {
@@ -87,7 +87,7 @@ void BufferPool::checkpoint() noexcept {
 }
 
 char* BufferPool::getBuffer( const bufferId_t bId ) noexcept {
-	char* buffer = m_pool + (m_pageSize*bId);
+	char* buffer = p_pool + (m_pageSize*bId);
 	return buffer;
 }
 

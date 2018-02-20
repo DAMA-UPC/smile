@@ -16,15 +16,15 @@ BufferPool::BufferPool(FileStorage* storage, const BufferPoolConfig& config) noe
 }
 
 BufferHandler BufferPool::alloc() noexcept {
-	// Reserve space in disk an get the corresponding pageId_t.
+	// Reserve space in disk and get the corresponding pageId_t.
 	pageId_t pId;
 	p_storage->reserve(1, pId);
 
 	// Get an empty buffer pool slot for the page.
 	bufferId_t bId = getEmptySlot();
-	// TODO: add m_bufferTable entry of the new page.	
+	m_bufferTable[pId] = bId;
 
-	// Fill the buffer descriptor
+	// Fill the buffer descriptor.
 	m_descriptors[bId].m_referenceCount = 1;
 	m_descriptors[bId].m_usageCount = 1;
 	m_descriptors[bId].m_dirty = 0;
@@ -36,23 +36,37 @@ BufferHandler BufferPool::alloc() noexcept {
 }
 
 void BufferPool::release( const pageId_t pId ) noexcept {
-	// TODO: implement release operation.
-	// TODO: remove m_bufferTable entry of the released page.
+	// Check if the page is in the Buffer Pool.	
+	std::map<pageId_t, bufferId_t>::iterator it;
+	it = m_bufferTable.find(pId);
+	if (it != m_bufferTable.end()) {
+		bufferId_t bId = it->second;
 
-	// Set buffer as not allocated
-	/*m_allocationTable.set(bId, 0);
+		// Delete page entry from buffer table.
+		m_bufferTable.erase(m_descriptors[bId].m_pageId);
 
-	// If the buffer is dirty we must store it to disk
-	if( m_descriptors[bId].m_dirty ) {
-		p_storage->write(getBuffer(bId), m_descriptors[bId].m_pageId);
-	}*/
+		// Set buffer as not allocated
+		m_allocationTable.set(bId, 0);
+
+		// If the buffer is dirty we must store it to disk.
+		if( m_descriptors[bId].m_dirty ) {
+			p_storage->write(getBuffer(bId), m_descriptors[bId].m_pageId);
+		}
+		
+		// Update buffer descriptor.
+		m_descriptors[bId].m_referenceCount = 0;
+		m_descriptors[bId].m_usageCount = 0;
+		m_descriptors[bId].m_dirty = 0;
+		m_descriptors[bId].m_pageId = 0;
+	}
+
+	// TODO: notify storage to set as free?	
 }
 
 BufferHandler BufferPool::pin( const pageId_t pId ) noexcept {
 	bufferId_t bId;
-	bool found = false;
 
-	// Look for the desired page in the Buffer Pool
+	// Look for the desired page in the Buffer Pool.
 	std::map<pageId_t, bufferId_t>::iterator it;
 	it = m_bufferTable.find(pId);
 
@@ -62,10 +76,11 @@ BufferHandler BufferPool::pin( const pageId_t pId ) noexcept {
 	if (it == m_bufferTable.end()) {
 		bId = getEmptySlot();
 		p_storage->read(getBuffer(bId), pId);
-		// TODO: add m_bufferTable entry of the new page.
+		m_bufferTable[pId] = bId;
 
 		m_descriptors[bId].m_referenceCount = 1;
 		m_descriptors[bId].m_usageCount = 1;
+		m_descriptors[bId].m_dirty = 0;
 	}
 	else {
 		bId = it->second;
@@ -74,8 +89,7 @@ BufferHandler BufferPool::pin( const pageId_t pId ) noexcept {
 		++m_descriptors[bId].m_usageCount;
 	}
 
-	// Fill the remaining buffer descriptor fields
-	m_descriptors[bId].m_dirty = 0;
+	// Fill the remaining buffer descriptor fields.
 	m_descriptors[bId].m_pageId = pId;
 	
 	// Return a BufferHandler of the pinned buffer.
@@ -84,7 +98,7 @@ BufferHandler BufferPool::pin( const pageId_t pId ) noexcept {
 }
 
 void BufferPool::unpin( const pageId_t pId ) noexcept {
-	// Decrement page's reference count	
+	// Decrement page's reference count.
 	std::map<pageId_t, bufferId_t>::iterator it;
 	it = m_bufferTable.find(pId);
 	if (it != m_bufferTable.end()) {
@@ -94,7 +108,13 @@ void BufferPool::unpin( const pageId_t pId ) noexcept {
 }
 
 void BufferPool::checkpoint() noexcept {
-
+	// Look for dirty Buffer Pool slots and flush them to disk.
+	for (int bId = 0; bId < m_allocationTable.size(); ++bId) {
+		if (m_allocationTable.test(bId) && m_descriptors[bId].m_dirty) {
+			p_storage->write(getBuffer(bId), m_descriptors[bId].m_pageId);
+			m_descriptors[bId].m_dirty = 0;
+		}
+	}
 }
 
 char* BufferPool::getBuffer( const bufferId_t bId ) noexcept {
@@ -107,7 +127,7 @@ bufferId_t BufferPool::getEmptySlot() noexcept {
 	bufferId_t bId;
 	bool found = false;
 
-	// Look for an empty Buffer Pool slot
+	// Look for an empty Buffer Pool slot.
 	for (int i = 0; i < m_allocationTable.size() && !found; ++i) {
 		if (!m_allocationTable.test(i)) {
 			m_allocationTable.set(i);
@@ -128,7 +148,8 @@ bufferId_t BufferPool::getEmptySlot() noexcept {
 				p_storage->write(getBuffer(bId), m_descriptors[bId].m_pageId);
 			}
 
-			// TODO: remove m_bufferTable entry of the evicted page.
+			// Delete page entry from buffer table.
+			m_bufferTable.erase(m_descriptors[bId].m_pageId);
 		}
 		else {
 			--m_descriptors[m_nextCSVictim].m_usageCount;
@@ -138,5 +159,6 @@ bufferId_t BufferPool::getEmptySlot() noexcept {
 
 	return bId;
 }
+
 SMILE_NS_END
 

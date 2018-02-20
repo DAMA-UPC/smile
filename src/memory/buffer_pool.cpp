@@ -117,6 +117,15 @@ void BufferPool::checkpoint() noexcept {
 	}
 }
 
+void BufferPool::setPageDirty( pageId_t pId ) noexcept {
+	std::map<pageId_t, bufferId_t>::iterator it;
+	it = m_bufferTable.find(pId);
+	if (it != m_bufferTable.end()) {
+		bufferId_t bId = it->second;
+		m_descriptors[bId].m_dirty = 1;
+	}
+}
+
 char* BufferPool::getBuffer( const bufferId_t bId ) noexcept {
 	char* buffer = p_pool + (p_storage->getPageSize()*bId);
 	return buffer;

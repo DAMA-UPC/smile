@@ -87,6 +87,13 @@ class BufferPool {
      **/
     void checkpoint() noexcept;
 
+    /**
+     * Sets a page as dirty
+     * 
+     * @param pId pageId_t of the page to be set as dirty.
+     */
+    void setPageDirty( pageId_t pId ) noexcept;
+
   private:
 
     /**

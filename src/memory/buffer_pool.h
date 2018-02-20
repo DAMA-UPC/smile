@@ -21,22 +21,18 @@ struct BufferPoolConfig {
 };
 
 struct BufferHandler {
-
-    /**
-     * Struct constructor.
-     */
-    BufferHandler(char* buffer, bufferId_t bId) {
-        char*           m_buffer = buffer; 
-        bufferId_t      m_bId = bId;
-    }
-
     /**
      * Pointer to buffer ID from the Buffer Pool.
      */
     char*           m_buffer; 
 
     /**
-     * ID of the buffer accessed by the handler.
+     * pageId_t of the page corresponding to the buffer.
+     */
+    pageId_t        m_pId;
+
+    /**
+     * bufferId_t of the buffer accessed by the handler.
      */
     bufferId_t      m_bId;
 };

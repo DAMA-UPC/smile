@@ -40,6 +40,7 @@ ErrorCode BufferPool::alloc( BufferHandler& bufferHandler ) noexcept {
 
 	// Set BufferHandler for the allocated buffer.
 	bufferHandler.m_buffer 	= getBuffer(bId);
+	bufferHandler.m_pId 	= pId;
 	bufferHandler.m_bId 	= bId;
 
 	return ErrorCode::E_NO_ERROR;
@@ -120,6 +121,7 @@ ErrorCode BufferPool::pin( const pageId_t pId, BufferHandler& bufferHandler ) no
 	
 	// Set BufferHandler for the pinned buffer.
 	bufferHandler.m_buffer 	= getBuffer(bId);
+	bufferHandler.m_pId 	= pId;
 	bufferHandler.m_bId 	= bId;
 	
 	return ErrorCode::E_NO_ERROR;
@@ -221,8 +223,7 @@ ErrorCode BufferPool::getEmptySlot( bufferId_t& bId ) noexcept {
 		}
 	}
 
-	if (!found)
-	{
+	if (!found)	{
 		return ErrorCode::E_BUFPOOL_OUT_OF_MEMORY;
 	}
 

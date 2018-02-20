@@ -25,7 +25,10 @@ ErrorCode BufferPool::alloc( BufferHandler& bufferHandler ) noexcept {
 
 	// Reserve space in disk and get the corresponding pageId_t.
 	pageId_t pId;
-	p_storage->reserve(1, pId);
+	error = p_storage->reserve(1, pId);
+	if ( error != ErrorCode::E_NO_ERROR ) {
+		return error;
+	}
 
 	m_bufferTable[pId] = bId;
 
@@ -42,7 +45,7 @@ ErrorCode BufferPool::alloc( BufferHandler& bufferHandler ) noexcept {
 	return ErrorCode::E_NO_ERROR;
 }
 
-void BufferPool::release( const pageId_t pId ) noexcept {
+ErrorCode BufferPool::release( const pageId_t pId ) noexcept {
 	// Check if the page is in the Buffer Pool.	
 	std::map<pageId_t, bufferId_t>::iterator it;
 	it = m_bufferTable.find(pId);
@@ -57,7 +60,10 @@ void BufferPool::release( const pageId_t pId ) noexcept {
 
 		// If the buffer is dirty we must store it to disk.
 		if( m_descriptors[bId].m_dirty ) {
-			p_storage->write(getBuffer(bId), m_descriptors[bId].m_pageId);
+			ErrorCode error = p_storage->write(getBuffer(bId), m_descriptors[bId].m_pageId);
+			if ( error != ErrorCode::E_NO_ERROR ) {
+				return error;
+			}
 		}
 		
 		// Update buffer descriptor.
@@ -66,8 +72,13 @@ void BufferPool::release( const pageId_t pId ) noexcept {
 		m_descriptors[bId].m_dirty = 0;
 		m_descriptors[bId].m_pageId = 0;
 	}
+	else {
+		return ErrorCode::E_BUFPOOL_PAGE_NOT_PRESENT;
+	}
 
-	// TODO: notify storage to set as free?	
+	// TODO: notify storage to set as free?
+
+	return ErrorCode::E_NO_ERROR;
 }
 
 ErrorCode BufferPool::pin( const pageId_t pId, BufferHandler& bufferHandler ) noexcept {
@@ -86,7 +97,11 @@ ErrorCode BufferPool::pin( const pageId_t pId, BufferHandler& bufferHandler ) no
 			return error;
 		}
 
-		p_storage->read(getBuffer(bId), pId);
+		error = p_storage->read(getBuffer(bId), pId);
+		if ( error != ErrorCode::E_NO_ERROR ) {
+			return error;
+		}
+
 		m_bufferTable[pId] = bId;
 
 		m_descriptors[bId].m_referenceCount = 1;
@@ -110,24 +125,35 @@ ErrorCode BufferPool::pin( const pageId_t pId, BufferHandler& bufferHandler ) no
 	return ErrorCode::E_NO_ERROR;
 }
 
-void BufferPool::unpin( const pageId_t pId ) noexcept {
+ErrorCode BufferPool::unpin( const pageId_t pId ) noexcept {
 	// Decrement page's reference count.
 	std::map<pageId_t, bufferId_t>::iterator it;
 	it = m_bufferTable.find(pId);
 	if (it != m_bufferTable.end()) {
 		bufferId_t bId = it->second;
 		--m_descriptors[bId].m_referenceCount;
+	}
+	else {
+		return ErrorCode::E_BUFPOOL_PAGE_NOT_PRESENT;
 	}	
+
+	return ErrorCode::E_NO_ERROR;
 }
 
-void BufferPool::checkpoint() noexcept {
+ErrorCode BufferPool::checkpoint() noexcept {
 	// Look for dirty Buffer Pool slots and flush them to disk.
 	for (int bId = 0; bId < m_allocationTable.size(); ++bId) {
 		if (m_allocationTable.test(bId) && m_descriptors[bId].m_dirty) {
-			p_storage->write(getBuffer(bId), m_descriptors[bId].m_pageId);
+			ErrorCode error = p_storage->write(getBuffer(bId), m_descriptors[bId].m_pageId);
+			if ( error != ErrorCode::E_NO_ERROR ) {
+				return error;
+			}
+
 			m_descriptors[bId].m_dirty = 0;
 		}
 	}
+
+	return ErrorCode::E_NO_ERROR;
 }
 
 void BufferPool::setPageDirty( pageId_t pId ) noexcept {
@@ -172,7 +198,10 @@ ErrorCode BufferPool::getEmptySlot( bufferId_t& bId ) noexcept {
 
 				// If the buffer is dirty we must store it to disk.
 				if( m_descriptors[bId].m_dirty ) {
-					p_storage->write(getBuffer(bId), m_descriptors[bId].m_pageId);
+					ErrorCode error = p_storage->write(getBuffer(bId), m_descriptors[bId].m_pageId);
+					if ( error != ErrorCode::E_NO_ERROR ) {
+						return error;
+					}
 				}
 
 				// Delete page entry from buffer table.

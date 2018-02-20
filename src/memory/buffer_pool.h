@@ -65,14 +65,15 @@ class BufferPool {
      * Releases a page from the Buffer Pool.
      * 
      * @param pId Page to release.
+     * @return false if the release was successful, true otherwise.
      */
-    void release( const pageId_t pId ) noexcept;
+    ErrorCode release( const pageId_t pId ) noexcept;
 
     /**
      * Pins a page.
      * 
      * @param pId Page to pin.
-     * @param bufferHandler BufferHandler for the pinned page.     * 
+     * @param bufferHandler BufferHandler for the pinned page.
      * @return false if the pin was successful, true otherwise.
      */
     ErrorCode pin( const pageId_t pId, BufferHandler& bufferHandler ) noexcept;
@@ -81,13 +82,16 @@ class BufferPool {
      * Unpins a page.
      * 
      * @param pId Page to unpin.
+     * @return false if the unpin was successful, true otherwise.
      */
-    void unpin( const pageId_t pId ) noexcept;
+    ErrorCode unpin( const pageId_t pId ) noexcept;
 
     /**
      * Checkpoints the BufferPool to the storage.
-     **/
-    void checkpoint() noexcept;
+     * 
+     * @return false if the checkpoint was successful, true otherwise.
+     */
+    ErrorCode checkpoint() noexcept;
 
     /**
      * Sets a page as dirty.

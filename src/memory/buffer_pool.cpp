@@ -15,13 +15,18 @@ BufferPool::BufferPool(FileStorage* storage, const BufferPoolConfig& config) noe
 	m_nextCSVictim = 0;
 }
 
-BufferHandler BufferPool::alloc() noexcept {
+ErrorCode BufferPool::alloc( BufferHandler& bufferHandler ) noexcept {
+	// Get an empty buffer pool slot for the page.
+	bufferId_t bId;
+	ErrorCode error = getEmptySlot(bId);
+	if ( error != ErrorCode::E_NO_ERROR ) {
+		return error;
+	}
+
 	// Reserve space in disk and get the corresponding pageId_t.
 	pageId_t pId;
 	p_storage->reserve(1, pId);
 
-	// Get an empty buffer pool slot for the page.
-	bufferId_t bId = getEmptySlot();
 	m_bufferTable[pId] = bId;
 
 	// Fill the buffer descriptor.
@@ -30,9 +35,11 @@ BufferHandler BufferPool::alloc() noexcept {
 	m_descriptors[bId].m_dirty = 0;
 	m_descriptors[bId].m_pageId = pId;
 
-	// Return a BufferHandler of the allocated buffer.
-	BufferHandler bufferHandler(getBuffer(bId), bId);
-	return bufferHandler;
+	// Set BufferHandler for the allocated buffer.
+	bufferHandler.m_buffer 	= getBuffer(bId);
+	bufferHandler.m_bId 	= bId;
+
+	return ErrorCode::E_NO_ERROR;
 }
 
 void BufferPool::release( const pageId_t pId ) noexcept {
@@ -63,7 +70,7 @@ void BufferPool::release( const pageId_t pId ) noexcept {
 	// TODO: notify storage to set as free?	
 }
 
-BufferHandler BufferPool::pin( const pageId_t pId ) noexcept {
+ErrorCode BufferPool::pin( const pageId_t pId, BufferHandler& bufferHandler ) noexcept {
 	bufferId_t bId;
 
 	// Look for the desired page in the Buffer Pool.
@@ -74,7 +81,11 @@ BufferHandler BufferPool::pin( const pageId_t pId ) noexcept {
 	// from disk. Else take the corresponding slot. Update Buffer Descriptor 
 	// accordingly.
 	if (it == m_bufferTable.end()) {
-		bId = getEmptySlot();
+		ErrorCode error = getEmptySlot(bId);
+		if ( error != ErrorCode::E_NO_ERROR ) {
+			return error;
+		}
+
 		p_storage->read(getBuffer(bId), pId);
 		m_bufferTable[pId] = bId;
 
@@ -92,9 +103,11 @@ BufferHandler BufferPool::pin( const pageId_t pId ) noexcept {
 	// Fill the remaining buffer descriptor fields.
 	m_descriptors[bId].m_pageId = pId;
 	
-	// Return a BufferHandler of the pinned buffer.
-	BufferHandler bufferHandler(getBuffer(bId), bId);
-	return bufferHandler;	
+	// Set BufferHandler for the pinned buffer.
+	bufferHandler.m_buffer 	= getBuffer(bId);
+	bufferHandler.m_bId 	= bId;
+	
+	return ErrorCode::E_NO_ERROR;
 }
 
 void BufferPool::unpin( const pageId_t pId ) noexcept {
@@ -131,9 +144,7 @@ char* BufferPool::getBuffer( const bufferId_t bId ) noexcept {
 	return buffer;
 }
 
-// TODO: return error if everything is pinned.
-bufferId_t BufferPool::getEmptySlot() noexcept {
-	bufferId_t bId;
+ErrorCode BufferPool::getEmptySlot( bufferId_t& bId ) noexcept {
 	bool found = false;
 
 	// Look for an empty Buffer Pool slot.
@@ -145,11 +156,16 @@ bufferId_t BufferPool::getEmptySlot() noexcept {
 		}
 	}
 
+	bool existUnpinnedPage = false;
+	uint64_t start = m_nextCSVictim;
+
 	// If there is no empty slot, use Clock Sweep algorithm to find a victim.
 	while (!found) {
 		// Check only unpinned pages
 		if (m_descriptors[m_nextCSVictim].m_referenceCount == 0)
 		{
+			existUnpinnedPage = true;
+
 			if ( m_descriptors[m_nextCSVictim].m_usageCount == 0 ) {
 				bId = m_nextCSVictim;
 				found = true;
@@ -169,9 +185,19 @@ bufferId_t BufferPool::getEmptySlot() noexcept {
 		
 		// Advance victim pointer.
 		m_nextCSVictim = (m_nextCSVictim+1) % m_descriptors.size();
+
+		// Stop Clock Sweep in case there are no unpinned pages.
+		if (!existUnpinnedPage && m_nextCSVictim == start) {
+			break;
+		}
 	}
 
-	return bId;
+	if (!found)
+	{
+		return ErrorCode::E_BUFPOOL_OUT_OF_MEMORY;
+	}
+
+	return ErrorCode::E_NO_ERROR;
 }
 
 SMILE_NS_END

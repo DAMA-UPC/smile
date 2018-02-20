@@ -23,7 +23,7 @@ struct BufferPoolConfig {
 struct BufferHandler {
 
     /**
-     * Struct constructor
+     * Struct constructor.
      */
     BufferHandler(char* buffer, bufferId_t bId) {
         char*           m_buffer = buffer; 
@@ -56,9 +56,10 @@ class BufferPool {
     /**
      * Allocates a new page in the Buffer Pool.
      * 
-     * @return BufferHandler for the allocated page.
+     * @param bufferHandler BufferHandler for the allocated page.
+     * @return false if the alloc was successful, true otherwise.
      */
-    BufferHandler alloc() noexcept;
+    ErrorCode alloc( BufferHandler& bufferHandler ) noexcept;
 
     /**
      * Releases a page from the Buffer Pool.
@@ -71,9 +72,10 @@ class BufferPool {
      * Pins a page.
      * 
      * @param pId Page to pin.
-     * @return BufferHandler for the pinned page.
+     * @param bufferHandler BufferHandler for the pinned page.     * 
+     * @return false if the pin was successful, true otherwise.
      */
-    BufferHandler pin( const pageId_t pId ) noexcept;
+    ErrorCode pin( const pageId_t pId, BufferHandler& bufferHandler ) noexcept;
 
     /**
      * Unpins a page.
@@ -83,12 +85,12 @@ class BufferPool {
     void unpin( const pageId_t pId ) noexcept;
 
     /**
-     * Checkpoints the BufferPool to the storage
+     * Checkpoints the BufferPool to the storage.
      **/
     void checkpoint() noexcept;
 
     /**
-     * Sets a page as dirty
+     * Sets a page as dirty.
      * 
      * @param pId pageId_t of the page to be set as dirty.
      */
@@ -97,10 +99,10 @@ class BufferPool {
   private:
 
     /**
-     * Get a pointer to the specified buffer slot
+     * Get a pointer to the specified buffer slot.
      * 
-     * @param bId bufferId_t of the buffer to get a pointer to
-     * @return Pointer to bId buffer 
+     * @param bId bufferId_t of the buffer to get a pointer to.
+     * @return Pointer to bId buffer.
      */
     char* getBuffer( const bufferId_t bId ) noexcept;
 
@@ -108,9 +110,10 @@ class BufferPool {
      * Returns the bufferId_t of an empty buffer pool slot. In case none is free
      * Clock Sweep algorithm is performed to evict a page.
      * 
-     * @return bufferId_t of the free pool slot.
+     * @param bId bufferId_t of the free pool slot.
+     * @return false if all pages are pinned, true otherwise.
      */
-    bufferId_t getEmptySlot() noexcept;
+    ErrorCode getEmptySlot( bufferId_t& bId ) noexcept;
 
     struct bufferDescriptor {
         /**

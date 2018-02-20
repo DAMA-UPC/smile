@@ -131,7 +131,7 @@ char* BufferPool::getBuffer( const bufferId_t bId ) noexcept {
 	return buffer;
 }
 
-// TODO: what if a victim is currently referenced?
+// TODO: return error if everything is pinned.
 bufferId_t BufferPool::getEmptySlot() noexcept {
 	bufferId_t bId;
 	bool found = false;
@@ -147,22 +147,27 @@ bufferId_t BufferPool::getEmptySlot() noexcept {
 
 	// If there is no empty slot, use Clock Sweep algorithm to find a victim.
 	while (!found) {
-		uint64_t usageCount = m_descriptors[m_nextCSVictim].m_usageCount;
-		if ( usageCount == 0 ) {
-			bId = m_nextCSVictim;
-			found = true;
+		// Check only unpinned pages
+		if (m_descriptors[m_nextCSVictim].m_referenceCount == 0)
+		{
+			if ( m_descriptors[m_nextCSVictim].m_usageCount == 0 ) {
+				bId = m_nextCSVictim;
+				found = true;
 
-			// If the buffer is dirty we must store it to disk
-			if( m_descriptors[bId].m_dirty ) {
-				p_storage->write(getBuffer(bId), m_descriptors[bId].m_pageId);
+				// If the buffer is dirty we must store it to disk.
+				if( m_descriptors[bId].m_dirty ) {
+					p_storage->write(getBuffer(bId), m_descriptors[bId].m_pageId);
+				}
+
+				// Delete page entry from buffer table.
+				m_bufferTable.erase(m_descriptors[bId].m_pageId);
 			}
-
-			// Delete page entry from buffer table.
-			m_bufferTable.erase(m_descriptors[bId].m_pageId);
+			else {
+				--m_descriptors[m_nextCSVictim].m_usageCount;
+			}	
 		}
-		else {
-			--m_descriptors[m_nextCSVictim].m_usageCount;
-		}
+		
+		// Advance victim pointer.
 		m_nextCSVictim = (m_nextCSVictim+1) % m_descriptors.size();
 	}
 

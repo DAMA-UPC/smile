@@ -44,74 +44,67 @@ TEST(BufferPoolTest, BufferPoolAlloc) {
   ASSERT_TRUE(bufferHandler1.m_bId == 2);
 }
 
-#if 0
 
 /**
- * Tests reading and writing a buffer. A page is allocated to the buffer pool and then it is 
- * pinned. Some data is written into it by using a handler and finally we read it to check that
- * everything went well.
+ * Tests pinning a page and writing into it. We first create a Buffer Pool with only 4-page
+ * slots. Then, we allocate a page P, write into it and finally unpin it. After so, we pin
+ * P again and check that it is still in its original Buffer Pool slot. We proceed to unpin
+ * it and start allocating a few more pages until P is flushed to disk. At the end, we pin
+ * P to bring it back to main memory and check that the data we have written still persists.
  */
-TEST(BufferPoolTest, BufferPoolReadWrite) {
+TEST(BufferPoolTest, BufferPoolPinAndWritePage) {
   FileStorage fileStorage;
   ASSERT_TRUE(fileStorage.create("./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
+  BufferPool bufferPool(&fileStorage, BufferPoolConfig{256});
+  BufferHandler bufferHandler;
 
-  BufferPool bufferPool(&fileStorage, BufferPoolConfig{});
+  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferHandler.m_bId == 0);
+  pageId_t pId = bufferHandler.m_pId;
 
-  pageId_t pId;
-  ASSERT_TRUE(fileStorage.reserve(8,pId) == ErrorCode::E_NO_ERROR);
-
-  transactionId_t tId = 1;
-  bufferId_t bId = bufferPool.alloc(tId,1);
-  ASSERT_TRUE(bId == 0);
-  Buffer buffer = bufferPool.pin(0,tId);
+  bufferPool.setPageDirty(pId);
   char dataW[] = "I am writing data";
-  buffer.write(dataW, 17, 100);
+  memcpy(bufferHandler.m_buffer, dataW, 17);
+  ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
 
-  char dataR[17];
-  buffer.read(dataR, 17, 100);
-  for (int i = 0; i < 17; ++i)
-  {
-    ASSERT_TRUE(dataW[i] == dataR[i]);
-  }
-}
+  ASSERT_TRUE(bufferPool.pin(pId, bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferHandler.m_pId == pId);
+  ASSERT_TRUE(bufferHandler.m_bId == 0);
+  ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
 
-/**
- * Tests releasing a page from the buffer pool. A page is allocated and written, so it gets
- * dirty. Then, buffer pool is asked for release it, which makes it flush the modified
- * page to disk. Finally, the page is pinned again to check that the changes have been correctly
- * saved to permanent storage.
- */
-TEST(BufferPoolTest, BufferPoolReadAfterRelease) {
-  FileStorage fileStorage;
-  ASSERT_TRUE(fileStorage.create("./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
-
-  BufferPool bufferPool(&fileStorage, BufferPoolConfig{});
-
-  pageId_t pId;
-  ASSERT_TRUE(fileStorage.reserve(8,pId) == ErrorCode::E_NO_ERROR);
-
-  transactionId_t tId = 1;
-  bufferId_t bId = bufferPool.alloc(tId,1);
-  ASSERT_TRUE(bId == 0);
-  Buffer buffer = bufferPool.pin(0,tId);
-  char dataW[] = "I am writing data";
-  buffer.write(dataW, 17, 100);
+  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferHandler.m_bId == 1);
+  ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferHandler.m_bId == 2);
+  ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferHandler.m_bId == 3);
+  ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferHandler.m_bId == 1);
+  ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferHandler.m_bId == 2);
+  ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferHandler.m_bId == 3);
+  ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferHandler.m_bId == 0);
+  ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
   
-  bufferPool.release(0);
+  ASSERT_TRUE(bufferPool.pin(pId, bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferHandler.m_bId == 1);
 
-  bId = bufferPool.alloc(tId,1);
-  ASSERT_TRUE(bId == 0);
-  buffer = bufferPool.pin(0,tId);
+  ASSERT_TRUE(bufferHandler.m_pId == pId);
   char dataR[17];
-  buffer.read(dataR, 17, 100);
-
+  memcpy(dataR, bufferHandler.m_buffer, 17);
   for (int i = 0; i < 17; ++i)
   {
     ASSERT_TRUE(dataW[i] == dataR[i]);
   }
 }
-
-#endif
 
 SMILE_NS_END
 

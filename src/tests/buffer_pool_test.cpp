@@ -44,7 +44,6 @@ TEST(BufferPoolTest, BufferPoolAlloc) {
   ASSERT_TRUE(bufferHandler1.m_bId == 2);
 }
 
-
 /**
  * Tests pinning a page and writing into it. We first create a Buffer Pool with only 4-page
  * slots. Then, we allocate a page P, write into it and finally unpin it. After so, we pin
@@ -104,6 +103,43 @@ TEST(BufferPoolTest, BufferPoolPinAndWritePage) {
   {
     ASSERT_TRUE(dataW[i] == dataR[i]);
   }
+}
+
+/**
+ * Tests that the Buffer Pool is properly reporting errors.
+ **/
+TEST(BufferPoolTest, BufferPoolErrors) {
+  FileStorage fileStorage;
+  ASSERT_TRUE(fileStorage.create("./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
+  BufferPool bufferPool(&fileStorage, BufferPoolConfig{256});
+  BufferHandler bufferHandler;
+
+  ASSERT_TRUE(bufferPool.unpin(0) == ErrorCode::E_BUFPOOL_PAGE_NOT_PRESENT);
+  ASSERT_TRUE(bufferPool.release(0) == ErrorCode::E_BUFPOOL_PAGE_NOT_PRESENT);
+
+  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferHandler.m_bId == 0);
+  pageId_t pId = bufferHandler.m_pId;
+  ASSERT_TRUE(bufferPool.unpin(pId) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.release(pId) == ErrorCode::E_NO_ERROR);
+
+  ASSERT_TRUE(bufferPool.unpin(0) == ErrorCode::E_BUFPOOL_PAGE_NOT_PRESENT);
+  ASSERT_TRUE(bufferPool.release(0) == ErrorCode::E_BUFPOOL_PAGE_NOT_PRESENT);
+
+  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferHandler.m_bId == 0);
+  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferHandler.m_bId == 1);
+  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferHandler.m_bId == 2);
+  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferHandler.m_bId == 3);
+
+  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_BUFPOOL_OUT_OF_MEMORY);
+
+  ASSERT_TRUE(bufferPool.release(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferHandler.m_bId == 3);
 }
 
 SMILE_NS_END

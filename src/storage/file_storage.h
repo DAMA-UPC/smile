@@ -34,7 +34,7 @@ class FileStorage {
      * @param in the path to the storage to create
      * @return in the configuration of the storage
      **/
-    ErrorCode create( const std::string& path, const FileStorageConfig& config, const bool overwrite = false ) noexcept;
+    ErrorCode create( const std::string& path, const FileStorageConfig& config, const bool& overwrite = false ) noexcept;
 
     /**
      * Closes the storage
@@ -48,7 +48,7 @@ class FileStorage {
      * @param out pageId The first reserved pageId
      * @return false if there was an error. true otherwise
      **/
-    ErrorCode reserve( const uint32_t numPages, pageId_t& pageId ) noexcept;
+    ErrorCode reserve( const uint32_t& numPages, pageId_t* pageId ) noexcept;
 
     /**
      * Locks a pages into a buffer
@@ -56,7 +56,7 @@ class FileStorage {
      * @param in pageId The page to lock
      * @return false if the lock was not successful. true otherwise
      * */
-    ErrorCode read( char* data, const pageId_t pageId ) noexcept;
+    ErrorCode read( char* data, const pageId_t& pageId ) noexcept;
 
     /**
      * Unlocks the given page
@@ -64,7 +64,7 @@ class FileStorage {
      * @param in pageId The page to unlock
      * @return false if the unlock was unsuccessful. true otherwise.
      **/
-    ErrorCode write( const char* data, const pageId_t pageId ) noexcept;
+    ErrorCode write( const char* data, const pageId_t& pageId ) noexcept;
 
     /**
      * Gets the current size of the storage in pages
@@ -93,14 +93,14 @@ class FileStorage {
      * @param bytes in bytes The bytes to convert
      * @return The pageId
      **/
-    pageId_t bytesToPage( uint64_t bytes ) const noexcept;
+    pageId_t bytesToPage( const uint64_t& bytes ) const noexcept;
 
     /**
      * Converts a page to its equivalent position in bytes
      * @param in pageId The page to convert
      * @return the position in bytes equivalent to the page.
      */
-    uint64_t pageToBytes( const pageId_t pageId ) const noexcept;
+    uint64_t pageToBytes( const pageId_t& pageId ) const noexcept;
 
 
     // The file

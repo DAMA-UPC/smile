@@ -25,7 +25,7 @@ ErrorCode BufferPool::alloc( BufferHandler* bufferHandler ) noexcept {
 
 	// Reserve space in disk and get the corresponding pageId_t.
 	pageId_t pId;
-	error = p_storage->reserve(1, pId);
+	error = p_storage->reserve(1, &pId);
 	if ( error != ErrorCode::E_NO_ERROR ) {
 		return error;
 	}

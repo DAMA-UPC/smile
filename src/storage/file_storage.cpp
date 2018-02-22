@@ -27,7 +27,7 @@ ErrorCode FileStorage::open( const std::string& path ) noexcept {
   return ErrorCode::E_NO_ERROR;
 }
 
-ErrorCode FileStorage::create( const std::string& path, const FileStorageConfig& config, const bool overwrite ) noexcept {
+ErrorCode FileStorage::create( const std::string& path, const FileStorageConfig& config, const bool& overwrite ) noexcept {
   if(!overwrite && std::ifstream(path)) {
     return ErrorCode::E_STORAGE_PATH_ALREADY_EXISTS;
   }
@@ -39,7 +39,7 @@ ErrorCode FileStorage::create( const std::string& path, const FileStorageConfig&
   m_config = config;
   m_pageFiller.resize(getPageSize(),'\0');
   pageId_t pid;
-  reserve(1,pid);
+  reserve(1,&pid);
   m_file.seekp(0,std::ios_base::beg);
   m_file.write(reinterpret_cast<char*>(&m_config), sizeof(m_config));
   m_file.flush();
@@ -57,12 +57,12 @@ ErrorCode FileStorage::close() noexcept {
   return ErrorCode::E_STORAGE_NOT_OPEN;
 }
 
-ErrorCode FileStorage::reserve( const uint32_t numPages, pageId_t& pageId ) noexcept {
+ErrorCode FileStorage::reserve( const uint32_t& numPages, pageId_t* pageId ) noexcept {
   m_file.seekp(0,std::ios_base::end);
   if(!m_file) {
     return ErrorCode::E_STORAGE_CRITICAL_ERROR;
   }
-  pageId = bytesToPage(m_file.tellp());
+  *pageId = bytesToPage(m_file.tellp());
   m_file.seekp(pageToBytes((numPages-1)),std::ios_base::end);
   m_file.write(m_pageFiller.data(), m_pageFiller.size());
   if(!m_file) {
@@ -72,7 +72,7 @@ ErrorCode FileStorage::reserve( const uint32_t numPages, pageId_t& pageId ) noex
   return ErrorCode::E_NO_ERROR;
 }
 
-ErrorCode FileStorage::read( char* data, const pageId_t pageId ) noexcept {
+ErrorCode FileStorage::read( char* data, const pageId_t& pageId ) noexcept {
   if(pageId == 0 || pageId >= m_size) {
     return ErrorCode::E_STORAGE_OUT_OF_BOUNDS_PAGE;
   }
@@ -87,7 +87,7 @@ ErrorCode FileStorage::read( char* data, const pageId_t pageId ) noexcept {
   return ErrorCode::E_NO_ERROR;
 }
 
-ErrorCode FileStorage::write( const char* data, const pageId_t pageId ) noexcept {
+ErrorCode FileStorage::write( const char* data, const pageId_t& pageId ) noexcept {
   if(pageId == 0 || pageId >= m_size) {
     return ErrorCode::E_STORAGE_OUT_OF_BOUNDS_PAGE;
   }
@@ -115,11 +115,11 @@ uint32_t FileStorage::getPageSize() const noexcept {
   return m_config.m_pageSizeKB*1024;
 }
 
-pageId_t FileStorage::bytesToPage( const uint64_t bytes ) const noexcept {
+pageId_t FileStorage::bytesToPage( const uint64_t& bytes ) const noexcept {
   return bytes / getPageSize();
 }
 
-uint64_t FileStorage::pageToBytes( const pageId_t pageId ) const noexcept {
+uint64_t FileStorage::pageToBytes( const pageId_t& pageId ) const noexcept {
   return pageId * getPageSize();
 }
 

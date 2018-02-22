@@ -32,13 +32,13 @@ TEST(FileStorageTest, FileStorageReserve) {
 
   ASSERT_TRUE(fileStorage.open("./test.db") == ErrorCode::E_NO_ERROR);
   pageId_t pId;
-  ASSERT_TRUE(fileStorage.reserve(1,pId) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(fileStorage.reserve(1,&pId) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(pId == 1);
-  ASSERT_TRUE(fileStorage.reserve(1,pId) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(fileStorage.reserve(1,&pId) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(pId == 2);
-  ASSERT_TRUE(fileStorage.reserve(4,pId) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(fileStorage.reserve(4,&pId) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(pId == 3);
-  ASSERT_TRUE(fileStorage.reserve(1,pId) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(fileStorage.reserve(1,&pId) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(pId == 7);
   ASSERT_TRUE(fileStorage.size() == 8);
   ASSERT_TRUE(fileStorage.close() == ErrorCode::E_NO_ERROR);
@@ -57,7 +57,7 @@ TEST(FileStorageTest, FileStorageReadWrite) {
   auto storageConfig = fileStorage.config();
   std::vector<char> data(storageConfig.m_pageSizeKB*1024);
   pageId_t pid;
-  ASSERT_TRUE(fileStorage.reserve(63,pid) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(fileStorage.reserve(63,&pid) == ErrorCode::E_NO_ERROR);
   std::vector<char> contents{'0','1','2','3','4','5','6','7','8','9'};
   for( auto i = pid; i < (pid+63); ++i ) {
     std::fill(data.begin(), data.end(), contents[i%contents.size()]);

@@ -10,8 +10,6 @@ endif (UNIX)
 
 add_library(memory STATIC
   types.h
-  buffer.h
-  buffer.cpp
   buffer_pool.h
   buffer_pool.cpp
 )

@@ -17,13 +17,13 @@ TEST(FileStorageTest, FileStorageOpen) {
   ASSERT_TRUE(fileStorage.create("./test.db", FileStorageConfig{4}, true) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(fileStorage.close() == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(fileStorage.open("./test.db") == ErrorCode::E_NO_ERROR);
-  ASSERT_TRUE(fileStorage.config().m_extentSizeKB == 4);
+  ASSERT_TRUE(fileStorage.config().m_pageSizeKB == 4);
   ASSERT_TRUE(fileStorage.close() == ErrorCode::E_NO_ERROR);
 }
 
 /**
- * Tests that extents are properly reserved and the returned extentIds 
- * are consistent with the amount of extents reserved
+ * Tests that pages are properly reserved and the returned pageIds 
+ * are consistent with the amount of pages reserved
  */
 TEST(FileStorageTest, FileStorageReserve) {
   FileStorage fileStorage;
@@ -31,15 +31,15 @@ TEST(FileStorageTest, FileStorageReserve) {
   ASSERT_TRUE(fileStorage.close() == ErrorCode::E_NO_ERROR);
 
   ASSERT_TRUE(fileStorage.open("./test.db") == ErrorCode::E_NO_ERROR);
-  extentId_t eId;
-  ASSERT_TRUE(fileStorage.reserve(1,eId) == ErrorCode::E_NO_ERROR);
-  ASSERT_TRUE(eId == 1);
-  ASSERT_TRUE(fileStorage.reserve(1,eId) == ErrorCode::E_NO_ERROR);
-  ASSERT_TRUE(eId == 2);
-  ASSERT_TRUE(fileStorage.reserve(4,eId) == ErrorCode::E_NO_ERROR);
-  ASSERT_TRUE(eId == 3);
-  ASSERT_TRUE(fileStorage.reserve(1,eId) == ErrorCode::E_NO_ERROR);
-  ASSERT_TRUE(eId == 7);
+  pageId_t pId;
+  ASSERT_TRUE(fileStorage.reserve(1,&pId) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(pId == 1);
+  ASSERT_TRUE(fileStorage.reserve(1,&pId) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(pId == 2);
+  ASSERT_TRUE(fileStorage.reserve(4,&pId) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(pId == 3);
+  ASSERT_TRUE(fileStorage.reserve(1,&pId) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(pId == 7);
   ASSERT_TRUE(fileStorage.size() == 8);
   ASSERT_TRUE(fileStorage.close() == ErrorCode::E_NO_ERROR);
 }
@@ -55,18 +55,18 @@ TEST(FileStorageTest, FileStorageReadWrite) {
   ASSERT_TRUE(fileStorage.create("./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
 
   auto storageConfig = fileStorage.config();
-  std::vector<char> data(storageConfig.m_extentSizeKB*1024);
-  extentId_t eid;
-  ASSERT_TRUE(fileStorage.reserve(63,eid) == ErrorCode::E_NO_ERROR);
+  std::vector<char> data(storageConfig.m_pageSizeKB*1024);
+  pageId_t pid;
+  ASSERT_TRUE(fileStorage.reserve(63,&pid) == ErrorCode::E_NO_ERROR);
   std::vector<char> contents{'0','1','2','3','4','5','6','7','8','9'};
-  for( auto i = eid; i < (eid+63); ++i ) {
+  for( auto i = pid; i < (pid+63); ++i ) {
     std::fill(data.begin(), data.end(), contents[i%contents.size()]);
     ASSERT_TRUE(fileStorage.write(data.data(),i) == ErrorCode::E_NO_ERROR);
   }
   ASSERT_TRUE(fileStorage.close() == ErrorCode::E_NO_ERROR);
 
   ASSERT_TRUE(fileStorage.open("./test.db") == ErrorCode::E_NO_ERROR);
-  for( auto i = eid; i < (eid+63); ++i ) {
+  for( auto i = pid; i < (pid+63); ++i ) {
     ASSERT_TRUE(fileStorage.read(data.data(),i) == ErrorCode::E_NO_ERROR);
     for( auto it = data.begin(); it != data.end(); ++it ) {
       ASSERT_TRUE(*it == contents[i%contents.size()]);
@@ -83,9 +83,9 @@ TEST(FileStorageTest, FileStorageErrors) {
   FileStorage fileStorage;
   ASSERT_TRUE(fileStorage.create("./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
   auto storageConfig = fileStorage.config();
-  std::vector<char> data(storageConfig.m_extentSizeKB*1024);
-  ASSERT_TRUE(fileStorage.write(data.data(),63) == ErrorCode::E_STORAGE_OUT_OF_BOUNDS_EXTENT);
-  ASSERT_TRUE(fileStorage.read(data.data(),32) == ErrorCode::E_STORAGE_OUT_OF_BOUNDS_EXTENT);
+  std::vector<char> data(storageConfig.m_pageSizeKB*1024);
+  ASSERT_TRUE(fileStorage.write(data.data(),63) == ErrorCode::E_STORAGE_OUT_OF_BOUNDS_PAGE);
+  ASSERT_TRUE(fileStorage.read(data.data(),32) == ErrorCode::E_STORAGE_OUT_OF_BOUNDS_PAGE);
   ASSERT_TRUE(fileStorage.close() == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(fileStorage.create("./test.db", FileStorageConfig{64}) == ErrorCode::E_STORAGE_PATH_ALREADY_EXISTS);
 }

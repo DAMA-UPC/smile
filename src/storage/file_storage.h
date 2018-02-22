@@ -11,7 +11,7 @@
 SMILE_NS_BEGIN
 
 struct FileStorageConfig {
-  uint32_t  m_extentSizeKB = 64;
+  uint32_t  m_pageSizeKB = 64;
 };
 
 class FileStorage {
@@ -34,7 +34,7 @@ class FileStorage {
      * @param in the path to the storage to create
      * @return in the configuration of the storage
      **/
-    ErrorCode create( const std::string& path, const FileStorageConfig& config, const bool overwrite = false ) noexcept;
+    ErrorCode create( const std::string& path, const FileStorageConfig& config, const bool& overwrite = false ) noexcept;
 
     /**
      * Closes the storage
@@ -43,33 +43,32 @@ class FileStorage {
     ErrorCode close() noexcept;
 
     /**
-     * Reserve a set of extents
-     * @param in numExtents The number of extent to reserve
-     * @param out extentId The first reserved extentId
+     * Reserve a set of pages
+     * @param in numPages The number of pages to reserve
+     * @param out pageId The first reserved pageId
      * @return false if there was an error. true otherwise
      **/
-    ErrorCode reserve( const uint32_t numExtents, extentId_t& extents ) noexcept;
+    ErrorCode reserve( const uint32_t& numPages, pageId_t* pageId ) noexcept;
 
     /**
-     * Locks an extent into a buffer
-     * @param in data The buffer where the extent will be locked
-     * @param in extent The extent to lock
+     * Locks a pages into a buffer
+     * @param in data The buffer where the page will be locked
+     * @param in pageId The page to lock
      * @return false if the lock was not successful. true otherwise
      * */
-    ErrorCode read( char* data, const extentId_t extent ) noexcept;
+    ErrorCode read( char* data, const pageId_t& pageId ) noexcept;
 
     /**
-     * Unlocks the given extent
-     * @param in data The buffer where the extent was locked
-     * @param in extent The extent to unlock
-     * @param in drity Whether to write the extent to disk or not.
+     * Unlocks the given page
+     * @param in data The buffer where the page was locked
+     * @param in pageId The page to unlock
      * @return false if the unlock was unsuccessful. true otherwise.
      **/
-    ErrorCode write( const char* data, const extentId_t extent ) noexcept;
+    ErrorCode write( const char* data, const pageId_t& pageId ) noexcept;
 
     /**
-     * Gets the current size of the storage in extents
-     * @return The current size of the storage in extents
+     * Gets the current size of the storage in pages
+     * @return The current size of the storage in pages
      **/
     uint64_t size() const noexcept;
 
@@ -79,42 +78,42 @@ class FileStorage {
      * */
     const FileStorageConfig& config() const noexcept;
 
+    /**
+     * Gets the page size in bytes
+     *
+     * @return The page size in bytes
+     **/
+    uint32_t getPageSize() const noexcept;
+
   private:
 
     /**
-     * Gets the extent size in bytes
-     *
-     * @return The extent size in bytes
-     **/
-    uint32_t getExtentSize() const noexcept;
-
-    /**
-     * Converts a position in a file in bytes to their extentId counterpart
+     * Converts a position in a file in bytes to their pageId counterpart
      * where this byte belongs to
      * @param bytes in bytes The bytes to convert
-     * @return The extentId
+     * @return The pageId
      **/
-    extentId_t bytesToExtent( uint64_t bytes ) const noexcept;
+    pageId_t bytesToPage( const uint64_t& bytes ) const noexcept;
 
     /**
-     * Converts an extent to its equivalent position in bytes
-     * @param in extentId The extent to convert
-     * @return the position in bytes equivalent to the extent.
+     * Converts a page to its equivalent position in bytes
+     * @param in pageId The page to convert
+     * @return the position in bytes equivalent to the page.
      */
-    uint64_t extentToBytes( const extentId_t extent ) const noexcept;
+    uint64_t pageToBytes( const pageId_t& pageId ) const noexcept;
 
 
     // The file
     std::fstream    m_file;
 
-    // The size of the file in extents;
-    extentId_t      m_size;
+    // The size of the file in pages;
+    pageId_t      m_size;
 
     // The basic file modes
     std::ios_base::openmode m_flags;
 
-    // A buffer used to initialize new extents in the file when it grows
-    std::vector<char>       m_extentFiller;
+    // A buffer used to initialize new pages in the file when it grows
+    std::vector<char>       m_pageFiller;
 
     // The storage configuration data
     FileStorageConfig  m_config;

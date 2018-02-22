@@ -30,7 +30,7 @@ ErrorCode BufferPool::alloc( BufferHandler& bufferHandler ) noexcept {
 		return error;
 	}
 
-	m_bufferTable[pId] = bId;
+	m_bufferToPageMap[pId] = bId;
 
 	// Fill the buffer descriptor.
 	m_descriptors[bId].m_referenceCount = 1;
@@ -49,12 +49,12 @@ ErrorCode BufferPool::alloc( BufferHandler& bufferHandler ) noexcept {
 ErrorCode BufferPool::release( const pageId_t pId ) noexcept {
 	// Check if the page is in the Buffer Pool.	
 	std::map<pageId_t, bufferId_t>::iterator it;
-	it = m_bufferTable.find(pId);
-	if (it != m_bufferTable.end()) {
+	it = m_bufferToPageMap.find(pId);
+	if (it != m_bufferToPageMap.end()) {
 		bufferId_t bId = it->second;
 
 		// Delete page entry from buffer table.
-		m_bufferTable.erase(m_descriptors[bId].m_pageId);
+		m_bufferToPageMap.erase(m_descriptors[bId].m_pageId);
 
 		// Set buffer as not allocated
 		m_allocationTable.set(bId, 0);
@@ -87,12 +87,12 @@ ErrorCode BufferPool::pin( const pageId_t pId, BufferHandler& bufferHandler ) no
 
 	// Look for the desired page in the Buffer Pool.
 	std::map<pageId_t, bufferId_t>::iterator it;
-	it = m_bufferTable.find(pId);
+	it = m_bufferToPageMap.find(pId);
 
 	// If it is not already there, get an empty slot for the page and load it
 	// from disk. Else take the corresponding slot. Update Buffer Descriptor 
 	// accordingly.
-	if (it == m_bufferTable.end()) {
+	if (it == m_bufferToPageMap.end()) {
 		ErrorCode error = getEmptySlot(bId);
 		if ( error != ErrorCode::E_NO_ERROR ) {
 			return error;
@@ -103,7 +103,7 @@ ErrorCode BufferPool::pin( const pageId_t pId, BufferHandler& bufferHandler ) no
 			return error;
 		}
 
-		m_bufferTable[pId] = bId;
+		m_bufferToPageMap[pId] = bId;
 
 		m_descriptors[bId].m_referenceCount = 1;
 		m_descriptors[bId].m_usageCount = 1;
@@ -130,8 +130,8 @@ ErrorCode BufferPool::pin( const pageId_t pId, BufferHandler& bufferHandler ) no
 ErrorCode BufferPool::unpin( const pageId_t pId ) noexcept {
 	// Decrement page's reference count.
 	std::map<pageId_t, bufferId_t>::iterator it;
-	it = m_bufferTable.find(pId);
-	if (it != m_bufferTable.end()) {
+	it = m_bufferToPageMap.find(pId);
+	if (it != m_bufferToPageMap.end()) {
 		bufferId_t bId = it->second;
 		--m_descriptors[bId].m_referenceCount;
 	}
@@ -160,8 +160,8 @@ ErrorCode BufferPool::checkpoint() noexcept {
 
 void BufferPool::setPageDirty( pageId_t pId ) noexcept {
 	std::map<pageId_t, bufferId_t>::iterator it;
-	it = m_bufferTable.find(pId);
-	if (it != m_bufferTable.end()) {
+	it = m_bufferToPageMap.find(pId);
+	if (it != m_bufferToPageMap.end()) {
 		bufferId_t bId = it->second;
 		m_descriptors[bId].m_dirty = 1;
 	}
@@ -207,7 +207,7 @@ ErrorCode BufferPool::getEmptySlot( bufferId_t& bId ) noexcept {
 				}
 
 				// Delete page entry from buffer table.
-				m_bufferTable.erase(m_descriptors[bId].m_pageId);
+				m_bufferToPageMap.erase(m_descriptors[bId].m_pageId);
 			}
 			else {
 				--m_descriptors[m_nextCSVictim].m_usageCount;

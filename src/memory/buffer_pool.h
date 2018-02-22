@@ -37,6 +37,28 @@ struct BufferHandler {
     bufferId_t      m_bId;
 };
 
+struct bufferDescriptor {
+        /**
+         * Number of current references of the page.
+         */
+        uint64_t    m_referenceCount = 0;
+
+        /**
+         * Number of times the stored page has been accessed since it was loaded in the slot.
+         */
+        uint64_t    m_usageCount    = 0;
+
+        /**
+         * Whether the buffer is dirty or not.
+         */
+        bool        m_dirty         = 0;
+
+        /**
+         * pageId_t on disk of the loaded page.
+         */
+        pageId_t    m_pageId        = 0;
+};
+
 class BufferPool {
 
   public:
@@ -115,28 +137,6 @@ class BufferPool {
      */
     ErrorCode getEmptySlot( bufferId_t& bId ) noexcept;
 
-    struct bufferDescriptor {
-        /**
-         * Number of current references of the page.
-         */
-        uint64_t    m_referenceCount = 0;
-
-        /**
-         * Number of times the stored page has been accessed since it was loaded in the slot.
-         */
-        uint64_t    m_usageCount    = 0;
-
-        /**
-         * Whether the buffer is dirty or not.
-         */
-        bool        m_dirty         = 0;
-
-        /**
-         * pageId_t on disk of the loaded page.
-         */
-        pageId_t    m_pageId        = 0;
-    };
-
     /**
      * The file storage where this buffer pool will be persisted.
      **/
@@ -160,7 +160,7 @@ class BufferPool {
     /**
      * Maps pageId_t with its bufferId_t in case it is currently in the Buffer Pool. 
      */
-    std::map<pageId_t, bufferId_t> m_bufferTable;
+    std::map<pageId_t, bufferId_t> m_bufferToPageMap;
 
     /**
      * Next victim to test during Clock Sweep.

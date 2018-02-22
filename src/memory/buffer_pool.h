@@ -38,25 +38,25 @@ struct BufferHandler {
 };
 
 struct bufferDescriptor {
-        /**
-         * Number of current references of the page.
-         */
-        uint64_t    m_referenceCount = 0;
+    /**
+     * Number of current references of the page.
+     */
+    uint64_t    m_referenceCount = 0;
 
-        /**
-         * Number of times the stored page has been accessed since it was loaded in the slot.
-         */
-        uint64_t    m_usageCount    = 0;
+    /**
+     * Number of times the stored page has been accessed since it was loaded in the slot.
+     */
+    uint64_t    m_usageCount    = 0;
 
-        /**
-         * Whether the buffer is dirty or not.
-         */
-        bool        m_dirty         = 0;
+    /**
+     * Whether the buffer is dirty or not.
+     */
+    bool        m_dirty         = 0;
 
-        /**
-         * pageId_t on disk of the loaded page.
-         */
-        pageId_t    m_pageId        = 0;
+    /**
+     * pageId_t on disk of the loaded page.
+     */
+    pageId_t    m_pageId        = 0;
 };
 
 class BufferPool {
@@ -67,7 +67,7 @@ class BufferPool {
 
     friend class Buffer;
 
-    BufferPool(FileStorage* storage, const BufferPoolConfig& config) noexcept;
+    BufferPool( const FileStorage& storage, const BufferPoolConfig& config) noexcept;
 
     ~BufferPool() noexcept = default;
 
@@ -77,7 +77,7 @@ class BufferPool {
      * @param bufferHandler BufferHandler for the allocated page.
      * @return false if the alloc was successful, true otherwise.
      */
-    ErrorCode alloc( BufferHandler& bufferHandler ) noexcept;
+    ErrorCode alloc( BufferHandler* bufferHandler ) noexcept;
 
     /**
      * Releases a page from the Buffer Pool.
@@ -85,7 +85,7 @@ class BufferPool {
      * @param pId Page to release.
      * @return false if the release was successful, true otherwise.
      */
-    ErrorCode release( const pageId_t pId ) noexcept;
+    ErrorCode release( const pageId_t& pId ) noexcept;
 
     /**
      * Pins a page.
@@ -94,7 +94,7 @@ class BufferPool {
      * @param bufferHandler BufferHandler for the pinned page.
      * @return false if the pin was successful, true otherwise.
      */
-    ErrorCode pin( const pageId_t pId, BufferHandler& bufferHandler ) noexcept;
+    ErrorCode pin( const pageId_t& pId, BufferHandler* bufferHandler ) noexcept;
 
     /**
      * Unpins a page.
@@ -102,7 +102,7 @@ class BufferPool {
      * @param pId Page to unpin.
      * @return false if the unpin was successful, true otherwise.
      */
-    ErrorCode unpin( const pageId_t pId ) noexcept;
+    ErrorCode unpin( const pageId_t& pId ) noexcept;
 
     /**
      * Checkpoints the BufferPool to the storage.
@@ -116,7 +116,7 @@ class BufferPool {
      * 
      * @param pId pageId_t of the page to be set as dirty.
      */
-    void setPageDirty( pageId_t pId ) noexcept;
+    void setPageDirty( const pageId_t& pId ) noexcept;
 
   private:
 
@@ -126,7 +126,7 @@ class BufferPool {
      * @param bId bufferId_t of the buffer to get a pointer to.
      * @return Pointer to bId buffer.
      */
-    char* getBuffer( const bufferId_t bId ) noexcept;
+    char* getBuffer( const bufferId_t& bId ) noexcept;
 
     /**
      * Returns the bufferId_t of an empty buffer pool slot. In case none is free
@@ -135,7 +135,7 @@ class BufferPool {
      * @param bId bufferId_t of the free pool slot.
      * @return false if all pages are pinned, true otherwise.
      */
-    ErrorCode getEmptySlot( bufferId_t& bId ) noexcept;
+    ErrorCode getEmptySlot( bufferId_t* bId ) noexcept;
 
     /**
      * The file storage where this buffer pool will be persisted.

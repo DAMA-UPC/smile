@@ -4,8 +4,8 @@
 
 SMILE_NS_BEGIN
 
-BufferPool::BufferPool(FileStorage* storage, const BufferPoolConfig& config) noexcept {
-	p_storage = storage;
+BufferPool::BufferPool( const FileStorage& storage, const BufferPoolConfig& config ) noexcept {
+	p_storage = const_cast<FileStorage*>(&storage);
 	p_pool = (char*) malloc( config.m_poolSizeKB*1024*sizeof(char) );
 
 	uint32_t pageSizeKB = p_storage->getPageSize() / 1024;
@@ -15,10 +15,10 @@ BufferPool::BufferPool(FileStorage* storage, const BufferPoolConfig& config) noe
 	m_nextCSVictim = 0;
 }
 
-ErrorCode BufferPool::alloc( BufferHandler& bufferHandler ) noexcept {
+ErrorCode BufferPool::alloc( BufferHandler* bufferHandler ) noexcept {
 	// Get an empty buffer pool slot for the page.
 	bufferId_t bId;
-	ErrorCode error = getEmptySlot(bId);
+	ErrorCode error = getEmptySlot(&bId);
 	if ( error != ErrorCode::E_NO_ERROR ) {
 		return error;
 	}
@@ -39,14 +39,14 @@ ErrorCode BufferPool::alloc( BufferHandler& bufferHandler ) noexcept {
 	m_descriptors[bId].m_pageId = pId;
 
 	// Set BufferHandler for the allocated buffer.
-	bufferHandler.m_buffer 	= getBuffer(bId);
-	bufferHandler.m_pId 	= pId;
-	bufferHandler.m_bId 	= bId;
+	bufferHandler->m_buffer 	= getBuffer(bId);
+	bufferHandler->m_pId 		= pId;
+	bufferHandler->m_bId 		= bId;
 
 	return ErrorCode::E_NO_ERROR;
 }
 
-ErrorCode BufferPool::release( const pageId_t pId ) noexcept {
+ErrorCode BufferPool::release( const pageId_t& pId ) noexcept {
 	// Check if the page is in the Buffer Pool.	
 	std::map<pageId_t, bufferId_t>::iterator it;
 	it = m_bufferToPageMap.find(pId);
@@ -82,7 +82,7 @@ ErrorCode BufferPool::release( const pageId_t pId ) noexcept {
 	return ErrorCode::E_NO_ERROR;
 }
 
-ErrorCode BufferPool::pin( const pageId_t pId, BufferHandler& bufferHandler ) noexcept {
+ErrorCode BufferPool::pin( const pageId_t& pId, BufferHandler* bufferHandler ) noexcept {
 	bufferId_t bId;
 
 	// Look for the desired page in the Buffer Pool.
@@ -93,7 +93,7 @@ ErrorCode BufferPool::pin( const pageId_t pId, BufferHandler& bufferHandler ) no
 	// from disk. Else take the corresponding slot. Update Buffer Descriptor 
 	// accordingly.
 	if (it == m_bufferToPageMap.end()) {
-		ErrorCode error = getEmptySlot(bId);
+		ErrorCode error = getEmptySlot(&bId);
 		if ( error != ErrorCode::E_NO_ERROR ) {
 			return error;
 		}
@@ -120,14 +120,14 @@ ErrorCode BufferPool::pin( const pageId_t pId, BufferHandler& bufferHandler ) no
 	m_descriptors[bId].m_pageId = pId;
 	
 	// Set BufferHandler for the pinned buffer.
-	bufferHandler.m_buffer 	= getBuffer(bId);
-	bufferHandler.m_pId 	= pId;
-	bufferHandler.m_bId 	= bId;
+	bufferHandler->m_buffer 	= getBuffer(bId);
+	bufferHandler->m_pId 	= pId;
+	bufferHandler->m_bId 	= bId;
 	
 	return ErrorCode::E_NO_ERROR;
 }
 
-ErrorCode BufferPool::unpin( const pageId_t pId ) noexcept {
+ErrorCode BufferPool::unpin( const pageId_t& pId ) noexcept {
 	// Decrement page's reference count.
 	std::map<pageId_t, bufferId_t>::iterator it;
 	it = m_bufferToPageMap.find(pId);
@@ -158,7 +158,7 @@ ErrorCode BufferPool::checkpoint() noexcept {
 	return ErrorCode::E_NO_ERROR;
 }
 
-void BufferPool::setPageDirty( pageId_t pId ) noexcept {
+void BufferPool::setPageDirty( const pageId_t& pId ) noexcept {
 	std::map<pageId_t, bufferId_t>::iterator it;
 	it = m_bufferToPageMap.find(pId);
 	if (it != m_bufferToPageMap.end()) {
@@ -167,19 +167,19 @@ void BufferPool::setPageDirty( pageId_t pId ) noexcept {
 	}
 }
 
-char* BufferPool::getBuffer( const bufferId_t bId ) noexcept {
+char* BufferPool::getBuffer( const bufferId_t& bId ) noexcept {
 	char* buffer = p_pool + (p_storage->getPageSize()*bId);
 	return buffer;
 }
 
-ErrorCode BufferPool::getEmptySlot( bufferId_t& bId ) noexcept {
+ErrorCode BufferPool::getEmptySlot( bufferId_t* bId ) noexcept {
 	bool found = false;
 
 	// Look for an empty Buffer Pool slot.
 	for (int i = 0; i < m_allocationTable.size() && !found; ++i) {
 		if (!m_allocationTable.test(i)) {
 			m_allocationTable.set(i);
-			bId = i;
+			*bId = i;
 			found = true;
 		}
 	}
@@ -195,19 +195,19 @@ ErrorCode BufferPool::getEmptySlot( bufferId_t& bId ) noexcept {
 			existUnpinnedPage = true;
 
 			if ( m_descriptors[m_nextCSVictim].m_usageCount == 0 ) {
-				bId = m_nextCSVictim;
+				*bId = m_nextCSVictim;
 				found = true;
 
 				// If the buffer is dirty we must store it to disk.
-				if( m_descriptors[bId].m_dirty ) {
-					ErrorCode error = p_storage->write(getBuffer(bId), m_descriptors[bId].m_pageId);
+				if( m_descriptors[*bId].m_dirty ) {
+					ErrorCode error = p_storage->write(getBuffer(*bId), m_descriptors[*bId].m_pageId);
 					if ( error != ErrorCode::E_NO_ERROR ) {
 						return error;
 					}
 				}
 
 				// Delete page entry from buffer table.
-				m_bufferToPageMap.erase(m_descriptors[bId].m_pageId);
+				m_bufferToPageMap.erase(m_descriptors[*bId].m_pageId);
 			}
 			else {
 				--m_descriptors[m_nextCSVictim].m_usageCount;

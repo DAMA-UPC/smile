@@ -13,34 +13,34 @@ SMILE_NS_BEGIN
 TEST(BufferPoolTest, BufferPoolAlloc) {
   FileStorage fileStorage;
   ASSERT_TRUE(fileStorage.create("./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
-  BufferPool bufferPool(&fileStorage, BufferPoolConfig{256});
+  BufferPool bufferPool(fileStorage, BufferPoolConfig{256});
   BufferHandler bufferHandler1, bufferHandler2, bufferHandler3, bufferHandler4;
 
-  ASSERT_TRUE(bufferPool.alloc(bufferHandler1) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(&bufferHandler1) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler1.m_bId == 0);
   ASSERT_TRUE(bufferPool.unpin(bufferHandler1.m_pId) == ErrorCode::E_NO_ERROR);
-  ASSERT_TRUE(bufferPool.alloc(bufferHandler2) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(&bufferHandler2) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler2.m_bId == 1);
   ASSERT_TRUE(bufferPool.unpin(bufferHandler2.m_pId) == ErrorCode::E_NO_ERROR);
-  ASSERT_TRUE(bufferPool.alloc(bufferHandler3) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(&bufferHandler3) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler3.m_bId == 2);
   ASSERT_TRUE(bufferPool.unpin(bufferHandler3.m_pId) == ErrorCode::E_NO_ERROR);
-  ASSERT_TRUE(bufferPool.alloc(bufferHandler4) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(&bufferHandler4) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler4.m_bId == 3);
   ASSERT_TRUE(bufferPool.unpin(bufferHandler4.m_pId) == ErrorCode::E_NO_ERROR);
 
-  ASSERT_TRUE(bufferPool.alloc(bufferHandler1) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(&bufferHandler1) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler1.m_bId == 0);
-  ASSERT_TRUE(bufferPool.alloc(bufferHandler2) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(&bufferHandler2) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler2.m_bId == 1);
-  ASSERT_TRUE(bufferPool.alloc(bufferHandler3) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(&bufferHandler3) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler3.m_bId == 2);
   ASSERT_TRUE(bufferPool.unpin(bufferHandler3.m_pId) == ErrorCode::E_NO_ERROR);
-  ASSERT_TRUE(bufferPool.alloc(bufferHandler4) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(&bufferHandler4) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler4.m_bId == 3);
   ASSERT_TRUE(bufferPool.unpin(bufferHandler4.m_pId) == ErrorCode::E_NO_ERROR);
 
-  ASSERT_TRUE(bufferPool.alloc(bufferHandler1) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(&bufferHandler1) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler1.m_bId == 2);
 }
 
@@ -54,10 +54,10 @@ TEST(BufferPoolTest, BufferPoolAlloc) {
 TEST(BufferPoolTest, BufferPoolPinAndWritePage) {
   FileStorage fileStorage;
   ASSERT_TRUE(fileStorage.create("./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
-  BufferPool bufferPool(&fileStorage, BufferPoolConfig{256});
+  BufferPool bufferPool(fileStorage, BufferPoolConfig{256});
   BufferHandler bufferHandler;
 
-  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler.m_bId == 0);
   pageId_t pId = bufferHandler.m_pId;
 
@@ -66,34 +66,34 @@ TEST(BufferPoolTest, BufferPoolPinAndWritePage) {
   memcpy(bufferHandler.m_buffer, dataW, 17);
   ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
 
-  ASSERT_TRUE(bufferPool.pin(pId, bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.pin(pId, &bufferHandler) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler.m_pId == pId);
   ASSERT_TRUE(bufferHandler.m_bId == 0);
   ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
 
-  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler.m_bId == 1);
   ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
-  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler.m_bId == 2);
   ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
-  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler.m_bId == 3);
   ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
-  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler.m_bId == 1);
   ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
-  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler.m_bId == 2);
   ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
-  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler.m_bId == 3);
   ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
-  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler.m_bId == 0);
   ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
   
-  ASSERT_TRUE(bufferPool.pin(pId, bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.pin(pId, &bufferHandler) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler.m_bId == 1);
 
   ASSERT_TRUE(bufferHandler.m_pId == pId);
@@ -111,13 +111,13 @@ TEST(BufferPoolTest, BufferPoolPinAndWritePage) {
 TEST(BufferPoolTest, BufferPoolErrors) {
   FileStorage fileStorage;
   ASSERT_TRUE(fileStorage.create("./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
-  BufferPool bufferPool(&fileStorage, BufferPoolConfig{256});
+  BufferPool bufferPool(fileStorage, BufferPoolConfig{256});
   BufferHandler bufferHandler;
 
   ASSERT_TRUE(bufferPool.unpin(0) == ErrorCode::E_BUFPOOL_PAGE_NOT_PRESENT);
   ASSERT_TRUE(bufferPool.release(0) == ErrorCode::E_BUFPOOL_PAGE_NOT_PRESENT);
 
-  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler.m_bId == 0);
   pageId_t pId = bufferHandler.m_pId;
   ASSERT_TRUE(bufferPool.unpin(pId) == ErrorCode::E_NO_ERROR);
@@ -126,19 +126,19 @@ TEST(BufferPoolTest, BufferPoolErrors) {
   ASSERT_TRUE(bufferPool.unpin(0) == ErrorCode::E_BUFPOOL_PAGE_NOT_PRESENT);
   ASSERT_TRUE(bufferPool.release(0) == ErrorCode::E_BUFPOOL_PAGE_NOT_PRESENT);
 
-  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler.m_bId == 0);
-  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler.m_bId == 1);
-  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler.m_bId == 2);
-  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler.m_bId == 3);
 
-  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_BUFPOOL_OUT_OF_MEMORY);
+  ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_BUFPOOL_OUT_OF_MEMORY);
 
   ASSERT_TRUE(bufferPool.release(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
-  ASSERT_TRUE(bufferPool.alloc(bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler.m_bId == 3);
 }
 

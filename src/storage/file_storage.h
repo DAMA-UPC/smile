@@ -16,7 +16,7 @@ struct FileStorageConfig {
 
 class FileStorage {
   public:
-    SMILE_NON_COPYABLE(FileStorage)
+    SMILE_NOT_COPYABLE(FileStorage)
 
     FileStorage() noexcept;
 

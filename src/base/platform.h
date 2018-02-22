@@ -11,7 +11,9 @@ SMILE_NS_BEGIN
 
 class Platform {
     public:
-        const Platform& getInstance() const noexcept; 
+        static std::size_t getSystemPageSize() noexcept;
+
+        static std::size_t roundSizeToPageSize( std::size_t size ) noexcept;
 };
 
 SMILE_NS_END

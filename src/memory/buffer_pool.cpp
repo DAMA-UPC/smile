@@ -4,8 +4,8 @@
 
 SMILE_NS_BEGIN
 
-BufferPool::BufferPool( const FileStorage& storage, const BufferPoolConfig& config ) noexcept {
-	p_storage = const_cast<FileStorage*>(&storage);
+BufferPool::BufferPool( FileStorage* storage, const BufferPoolConfig& config ) noexcept {
+	p_storage = storage;
 	p_pool = (char*) malloc( config.m_poolSizeKB*1024*sizeof(char) );
 
 	uint32_t pageSizeKB = p_storage->getPageSize() / 1024;

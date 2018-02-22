@@ -67,7 +67,7 @@ class BufferPool {
 
     friend class Buffer;
 
-    BufferPool( const FileStorage& storage, const BufferPoolConfig& config) noexcept;
+    BufferPool( FileStorage* storage, const BufferPoolConfig& config) noexcept;
 
     ~BufferPool() noexcept = default;
 

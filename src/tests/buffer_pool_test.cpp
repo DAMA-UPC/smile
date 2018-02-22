@@ -13,7 +13,7 @@ SMILE_NS_BEGIN
 TEST(BufferPoolTest, BufferPoolAlloc) {
   FileStorage fileStorage;
   ASSERT_TRUE(fileStorage.create("./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
-  BufferPool bufferPool(fileStorage, BufferPoolConfig{256});
+  BufferPool bufferPool(&fileStorage, BufferPoolConfig{256});
   BufferHandler bufferHandler1, bufferHandler2, bufferHandler3, bufferHandler4;
 
   ASSERT_TRUE(bufferPool.alloc(&bufferHandler1) == ErrorCode::E_NO_ERROR);
@@ -54,7 +54,7 @@ TEST(BufferPoolTest, BufferPoolAlloc) {
 TEST(BufferPoolTest, BufferPoolPinAndWritePage) {
   FileStorage fileStorage;
   ASSERT_TRUE(fileStorage.create("./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
-  BufferPool bufferPool(fileStorage, BufferPoolConfig{256});
+  BufferPool bufferPool(&fileStorage, BufferPoolConfig{256});
   BufferHandler bufferHandler;
 
   ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
@@ -111,7 +111,7 @@ TEST(BufferPoolTest, BufferPoolPinAndWritePage) {
 TEST(BufferPoolTest, BufferPoolErrors) {
   FileStorage fileStorage;
   ASSERT_TRUE(fileStorage.create("./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
-  BufferPool bufferPool(fileStorage, BufferPoolConfig{256});
+  BufferPool bufferPool(&fileStorage, BufferPoolConfig{256});
   BufferHandler bufferHandler;
 
   ASSERT_TRUE(bufferPool.unpin(0) == ErrorCode::E_BUFPOOL_PAGE_NOT_PRESENT);

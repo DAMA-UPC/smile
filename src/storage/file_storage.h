@@ -103,8 +103,11 @@ class FileStorage {
     uint64_t pageToBytes( const pageId_t& pageId ) const noexcept;
 
 
-    // The file
-    std::fstream    m_file;
+    // The data file
+    std::fstream    m_dataFile;
+
+    // The configuration file
+    std::fstream    m_configFile;
 
     // The size of the file in pages;
     pageId_t      m_size;

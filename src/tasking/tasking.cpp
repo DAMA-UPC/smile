@@ -60,6 +60,7 @@ static thread_local TaskContext*    p_currentRunningTask = nullptr;
  * @brief Finalizes the current running task and releases its resources
  */
 static void finalizeCurrentRunningTask() {
+  if(p_currentRunningTask->m_finished) {
     if(p_currentRunningTask->p_syncCounter != nullptr) {
       int32_t last = p_currentRunningTask->p_syncCounter->fetch_decrement();
       if(last == 1) {
@@ -70,6 +71,9 @@ static void finalizeCurrentRunningTask() {
     }
     delete p_currentRunningTask; // TODO: If a pool is used, reset the task and put it into the pool
     p_currentRunningTask = nullptr;
+  } else {
+    p_runningTaskPool->addTask(m_currentThreadId, p_currentRunningTask);
+  }
 }
 
 /**
@@ -89,23 +93,19 @@ static void startTask(TaskContext* taskContext) noexcept {
               return std::move(m_threadMainContexts[m_currentThreadId]);
               }
              );
-  if(p_currentRunningTask->m_finished) {
-    finalizeCurrentRunningTask();
-  } else {
-    p_runningTaskPool->addTask(m_currentThreadId, p_currentRunningTask);
-  }
+  finalizeCurrentRunningTask();
 }
 
 
+/**
+ * @brief Resumes the given running task 
+ *
+ * @param runningTask The task to resume
+ */
 static void resumeTask(TaskContext* runningTask) {
   p_currentRunningTask = runningTask;
   p_currentRunningTask->m_context = runningTask->m_context.resume();
-
-  if(p_currentRunningTask->m_finished) {
-    finalizeCurrentRunningTask();
-  } else {
-    p_runningTaskPool->addTask(m_currentThreadId, p_currentRunningTask);
-  }
+  finalizeCurrentRunningTask();
 }
 
 /**
@@ -171,6 +171,13 @@ void executeTaskAsync(uint32_t threadId, Task task, SyncCounter* counter ) noexc
   }
   p_toStartTaskPool->addTask(threadId, taskContext);
 } 
+
+void executeTaskSync(uint32_t threadId, 
+                     Task task, 
+                     SyncCounter* counter) noexcept {
+  executeTaskAsync(threadId, task, counter);
+  counter->join();
+}
 
 uint32_t getCurrentThreadId() noexcept {
   assert(m_currentThreadId != INVALID_THREAD_ID);

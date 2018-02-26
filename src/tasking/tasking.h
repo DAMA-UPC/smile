@@ -28,10 +28,25 @@ void stopThreadPool() noexcept;
  *
  * @param task The task to run
  * @param threadId The thread to execute the task at
+ * @param counter A pointer to the SyncCounter that will be used for
+ * synchronization
  */
 void executeTaskAsync(uint32_t threadId, 
                       Task task,
                       SyncCounter* counter) noexcept;
+
+/**
+ * @brief Sends the given task for execution at the given thread, and blocks
+ * until it finishes
+ *
+ * @param task The task to run
+ * @param threadId The thread to execute the task at
+ * @param counter A pointer to the SyncCounter that will be used for
+ * synchronization
+ */
+void executeTaskSync(uint32_t threadId, 
+                     Task task, 
+                     SyncCounter* counter) noexcept;
 
 /**
  * @brief Gets the current thread id

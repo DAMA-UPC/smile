@@ -6,6 +6,7 @@
 #include "../base/base.h"
 #include "task.h"
 
+
 SMILE_NS_BEGIN
 
 
@@ -25,7 +26,10 @@ void stopThreadPool() noexcept;
  * @param task The task to run
  * @param threadId The thread to execute the task at
  */
-void executeTask(Task task, uint32_t threadId) noexcept;
+void executeTaskAsync(uint32_t threadId, 
+                      TaskFunction fp, 
+                      void* args, 
+                      std::atomic<int32_t>* counter) noexcept;
 
 /**
  * @brief Gets the current thread id

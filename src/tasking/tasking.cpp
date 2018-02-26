@@ -1,15 +1,12 @@
 
 #include "task_pool.h"
 #include "tasking.h"
-#include <chrono>
 #include <atomic>
-#include <thread>
+#include <chrono>
 #include <queue>
+#include <thread>
 
-#include <boost/context/continuation.hpp>
 
-namespace ctx = boost::context;
-using Context = ctx::continuation;
 
 SMILE_NS_BEGIN
 
@@ -29,9 +26,9 @@ static std::size_t                  m_numThreads = 0;
 static std::thread**                p_threads;
 
 /**
- * @brief Pointer to the task pool where threads fetch tasks from
+ * @brief Pointer to the task pool with the tasks pending to start 
  */
-static TaskPool*                    p_taskPool = nullptr;
+static TaskPool*                    p_toStartTaskPool = nullptr;
 
 
 /**
@@ -47,20 +44,30 @@ static Context*                     m_threadMainContexts = nullptr;
 
 
 /**
- * @brief Structure used to store all the data regarding a running task
- */
-struct RunningTask {
-  Context      m_context;
-  bool         m_finished;
-  RunningTask* p_parent;
-};
-
-/**
  * @brief Vectors holding the running tasks of the thread.
  */
-static std::queue<RunningTask*>*        m_runningTasks = nullptr;
+static std::queue<Task*>*           m_runningTasks = nullptr;
 
-static thread_local RunningTask*       m_currentRunningTask = nullptr;
+/**
+ * @brief Pointer to the thread local currently running task 
+ */
+static thread_local Task*           p_currentRunningTask = nullptr;
+
+/**
+ * @brief Finalizes the current running task and releases its resources
+ */
+static void finalizeCurrentRunningTask() {
+    if(p_currentRunningTask->p_syncCounter != nullptr) {
+      int32_t last = p_currentRunningTask->p_syncCounter->fetch_add(-1);
+      if(last == 1) {
+        if(p_currentRunningTask->p_parent != nullptr) {
+          m_runningTasks->push(p_currentRunningTask->p_parent);
+        }
+      }
+    }
+    delete p_currentRunningTask; // TODO: If a pool is used, reset the task and put it into the pool
+    p_currentRunningTask = nullptr;
+}
 
 /**
  * @brief Start the execution to the given task. A lambda function is passed
@@ -70,22 +77,19 @@ static thread_local RunningTask*       m_currentRunningTask = nullptr;
  *
  * @param task The task to execute
  */
-static void startToTask(Task* task) noexcept {
-  m_currentRunningTask = new RunningTask(); // TODO: A pool should be used here
-  m_currentRunningTask->m_context = ctx::callcc([task](Context&& context) {
+static void startTask(Task* task) noexcept {
+  p_currentRunningTask = task; // TODO: A pool should be used here
+  p_currentRunningTask->m_context = ctx::callcc([task](Context&& context) {
               m_threadMainContexts[m_currentThreadId] = std::move(context);
-              m_currentRunningTask->p_parent    = nullptr;
-              m_currentRunningTask->m_finished  = false;
               task->p_fp(task->p_args);
-              m_currentRunningTask->m_finished = true;
+              p_currentRunningTask->m_finished  = true;
               return std::move(m_threadMainContexts[m_currentThreadId]);
               }
              );
-  if(m_currentRunningTask->m_finished) {
-    delete m_currentRunningTask; // TODO: If a pool is used, reset the task and put it into the pool
-    m_currentRunningTask = nullptr;
+  if(p_currentRunningTask->m_finished) {
+    finalizeCurrentRunningTask();
   } else {
-    m_runningTasks[m_currentThreadId].push(m_currentRunningTask);
+    m_runningTasks[m_currentThreadId].push(p_currentRunningTask);
   }
 }
 
@@ -96,25 +100,24 @@ static void startToTask(Task* task) noexcept {
  *
  * @return The running task. nullptr if it does not exist. 
  */
-static RunningTask* findRunningTask(int threadId) {
+static Task* findRunningTask(int threadId) {
   if (m_runningTasks[threadId].size() == 0) {
     return nullptr;
   }
 
-  RunningTask* runningTask = m_runningTasks[threadId].front();
+  Task* runningTask = m_runningTasks[threadId].front();
   m_runningTasks[threadId].pop();
   return runningTask;
 }
 
-static void resumeTask(RunningTask* runningTask) {
-  m_currentRunningTask = runningTask;
-  m_currentRunningTask->m_context = runningTask->m_context.resume();
+static void resumeTask(Task* runningTask) {
+  p_currentRunningTask = runningTask;
+  p_currentRunningTask->m_context = runningTask->m_context.resume();
 
-  if(m_currentRunningTask->m_finished) {
-    delete m_currentRunningTask; // TODO: If a pool is used, reset the task and put it into the pool
-    m_currentRunningTask = nullptr;
+  if(p_currentRunningTask->m_finished) {
+    finalizeCurrentRunningTask();
   } else {
-    m_runningTasks[m_currentThreadId].push(m_currentRunningTask);
+    m_runningTasks[m_currentThreadId].push(p_currentRunningTask);
   }
 }
 
@@ -128,12 +131,11 @@ static void threadFunction(int threadId) noexcept {
   m_currentThreadId = threadId;
 
   while(m_isRunning[m_currentThreadId].load()) {
-    Task task;
-    RunningTask* runningTask = nullptr;
-    if(p_taskPool->getNextTask(m_currentThreadId, &task)) {
-      startToTask(&task);
-    } else if ( (runningTask = findRunningTask(m_currentThreadId)) != nullptr) {
-        resumeTask(runningTask);
+    Task* task = p_toStartTaskPool->getNextTask(m_currentThreadId);
+    if(task != nullptr) {
+      startTask(task);
+    } else if ( (task = findRunningTask(m_currentThreadId)) != nullptr) {
+      resumeTask(task);
     } else {
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
@@ -142,9 +144,9 @@ static void threadFunction(int threadId) noexcept {
 
 void startThreadPool(std::size_t numThreads) noexcept {
 
-  p_taskPool            = new TaskPool{numThreads};
+  p_toStartTaskPool            = new TaskPool{numThreads};
   m_threadMainContexts  = new Context[numThreads];
-  m_runningTasks        = new std::queue<RunningTask*>[numThreads];
+  m_runningTasks        = new std::queue<Task*>[numThreads];
   m_numThreads          = numThreads;
   m_isRunning           = new std::atomic<bool>[m_numThreads];
   p_threads             = new std::thread*[m_numThreads];
@@ -169,11 +171,15 @@ void stopThreadPool() noexcept {
   delete [] m_isRunning;
   delete [] m_runningTasks;
   delete [] m_threadMainContexts;
-  delete p_taskPool;
+  delete p_toStartTaskPool;
 }
 
-void executeTask(Task task, uint32_t threadId) noexcept {
-  p_taskPool->addTask(threadId, task);
+void executeTaskAsync(uint32_t threadId, TaskFunction fp, void* args, std::atomic<int32_t>* counter ) noexcept {
+  Task* task = new Task{fp, args, counter};
+  if(task->p_syncCounter != nullptr) {
+    task->p_syncCounter->store(1);
+  }
+  p_toStartTaskPool->addTask(threadId, task);
 } 
 
 uint32_t getCurrentThreadId() noexcept {

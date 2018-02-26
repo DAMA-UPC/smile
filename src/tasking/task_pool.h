@@ -28,11 +28,10 @@ public:
    * @brief Gets the next task to process
    *
    * @param queueId The thread to get the task for 
-   * @param task Output paramter to store the next task  
    *
-   * @return True if the next task was returned. False otherwise. 
+   * @return Pointer to the task if this exists. nullptr otherwise. 
    */
-  bool getNextTask(uint32_t queueId, Task* task) noexcept;
+  Task* getNextTask(uint32_t queueId) noexcept;
 
   /**
    * @brief Adds a task to execute in the given queue
@@ -40,14 +39,14 @@ public:
    * @param queueId
    * @param task
    */
-  void addTask(uint32_t queueId, Task task) noexcept;
+  void addTask(uint32_t queueId, Task* task) noexcept;
 
 private:
 
   /**
    * @brief Array of lockfree queues. There is one per thread.
    */
-  lockfree::queue<Task>*  m_queues;
+  lockfree::queue<Task*>*  m_queues;
 
   /**
    * @brief The number of queues

@@ -5,10 +5,13 @@
 
 #include "../base/base.h"
 #include "task.h"
+#include <atomic>
+#include "sync_counter.h"
 
 
 SMILE_NS_BEGIN
 
+#define INVALID_THREAD_ID 0xffffffff
 
 /**
  * @brief Starts the thread pool
@@ -27,9 +30,8 @@ void stopThreadPool() noexcept;
  * @param threadId The thread to execute the task at
  */
 void executeTaskAsync(uint32_t threadId, 
-                      TaskFunction fp, 
-                      void* args, 
-                      std::atomic<int32_t>* counter) noexcept;
+                      Task task,
+                      SyncCounter* counter) noexcept;
 
 /**
  * @brief Gets the current thread id

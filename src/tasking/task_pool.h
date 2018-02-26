@@ -31,7 +31,7 @@ public:
    *
    * @return Pointer to the task if this exists. nullptr otherwise. 
    */
-  Task* getNextTask(uint32_t queueId) noexcept;
+  TaskContext* getNextTask(uint32_t queueId) noexcept;
 
   /**
    * @brief Adds a task to execute in the given queue
@@ -39,14 +39,14 @@ public:
    * @param queueId
    * @param task
    */
-  void addTask(uint32_t queueId, Task* task) noexcept;
+  void addTask(uint32_t queueId, TaskContext* task) noexcept;
 
 private:
 
   /**
    * @brief Array of lockfree queues. There is one per thread.
    */
-  lockfree::queue<Task*>*  m_queues;
+  lockfree::queue<TaskContext*>*  m_queues;
 
   /**
    * @brief The number of queues

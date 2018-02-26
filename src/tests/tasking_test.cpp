@@ -22,6 +22,7 @@ TEST(FileStorageTest, FileStorageOpen) {
 
   uint32_t numThreads = 4;
 
+  SyncCounter syncCounter;
   finalNumbers = new uint32_t[numThreads];
   uint32_t numbers[numThreads*2];
   startThreadPool(numThreads);
@@ -29,11 +30,11 @@ TEST(FileStorageTest, FileStorageOpen) {
     numbers[i] = i;
     numbers[numThreads+i] = i;
     finalNumbers[i] = 0;
-    executeTask({testFunction, &numbers[i]}, i);
-    executeTask({testFunction, &numbers[numThreads+i]}, i);
+    executeTaskAsync(i, {testFunction, &numbers[i]}, &syncCounter);
+    executeTaskAsync(i, {testFunction, &numbers[numThreads+i]}, &syncCounter);
   }
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+  syncCounter.join();
 
   stopThreadPool();
 

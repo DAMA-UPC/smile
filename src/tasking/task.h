@@ -6,23 +6,17 @@
 #include "../base/platform.h"
 #include <boost/context/continuation.hpp>
 
-namespace std {
-template<typename T>
-  class atomic;
-}
 
 namespace ctx = boost::context;
-using Context = ctx::continuation;
+using ExecutionContext = ctx::continuation;
 
 SMILE_NS_BEGIN
 
+class SyncCounter;
+
 typedef void(*TaskFunction)(void *arg);  
 
-/**
- * @brief  Structure used to represent a task to be executed by the thread pool
- */
 struct Task {
-
   /**
    * @brief Pointer to the function that executed the task
    */
@@ -33,27 +27,37 @@ struct Task {
    * function
    */
   void*         p_args = nullptr;
+};
 
+/**
+ * @brief  Structure used to represent a task to be executed by the thread pool
+ */
+struct TaskContext {
 
   /**
-   * @brief The atomic counter used to synchronize this task
+   * @brief Task encapsulated within this task context
    */
-  std::atomic<int32_t>*  p_syncCounter = nullptr;
+  Task              m_task;
+
+  /**
+   * @brief Synchronization counter used to synchronize this task
+   */
+  SyncCounter*      p_syncCounter = nullptr;
 
   /**
    * @bried The execution context of this task
    */
-  Context                 m_context;
+  ExecutionContext  m_context;
 
   /**
    * @brief Whether the task is finished or not
    */
-  bool                    m_finished  = false;
+  bool              m_finished  = false;
 
   /**
    * @brief A pointer to the parent of the task in the task dependency graph
    */
-  Task*            p_parent;
+  TaskContext*      p_parent;
 
 };  
 

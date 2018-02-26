@@ -11,6 +11,8 @@ if (UNIX)
 endif (UNIX)
 
 add_library(tasking STATIC
+  sync_counter.h
+  sync_counter.cpp
   task.h
   task_pool.h
   task_pool.cpp

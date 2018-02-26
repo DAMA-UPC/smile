@@ -30,6 +30,11 @@ static std::thread**                p_threads;
  */
 static TaskPool*                    p_toStartTaskPool = nullptr;
 
+/**
+ * @brief Vectors holding the running tasks of the thread.
+ */
+static TaskPool*                    p_runningTaskPool = nullptr;
+
 
 /**
  * @brief Thread local variable to store the id of the current thread
@@ -44,11 +49,6 @@ static Context*                     m_threadMainContexts = nullptr;
 
 
 /**
- * @brief Vectors holding the running tasks of the thread.
- */
-static std::queue<Task*>*           m_runningTasks = nullptr;
-
-/**
  * @brief Pointer to the thread local currently running task 
  */
 static thread_local Task*           p_currentRunningTask = nullptr;
@@ -61,7 +61,7 @@ static void finalizeCurrentRunningTask() {
       int32_t last = p_currentRunningTask->p_syncCounter->fetch_add(-1);
       if(last == 1) {
         if(p_currentRunningTask->p_parent != nullptr) {
-          m_runningTasks->push(p_currentRunningTask->p_parent);
+          p_runningTaskPool->addTask(m_currentThreadId, p_currentRunningTask->p_parent);
         }
       }
     }
@@ -89,26 +89,10 @@ static void startTask(Task* task) noexcept {
   if(p_currentRunningTask->m_finished) {
     finalizeCurrentRunningTask();
   } else {
-    m_runningTasks[m_currentThreadId].push(p_currentRunningTask);
+    p_runningTaskPool->addTask(m_currentThreadId, p_currentRunningTask);
   }
 }
 
-/**
- * @brief Searches for a running task for the given thread
- *
- * @param threadId The thread to look for a running task
- *
- * @return The running task. nullptr if it does not exist. 
- */
-static Task* findRunningTask(int threadId) {
-  if (m_runningTasks[threadId].size() == 0) {
-    return nullptr;
-  }
-
-  Task* runningTask = m_runningTasks[threadId].front();
-  m_runningTasks[threadId].pop();
-  return runningTask;
-}
 
 static void resumeTask(Task* runningTask) {
   p_currentRunningTask = runningTask;
@@ -117,7 +101,7 @@ static void resumeTask(Task* runningTask) {
   if(p_currentRunningTask->m_finished) {
     finalizeCurrentRunningTask();
   } else {
-    m_runningTasks[m_currentThreadId].push(p_currentRunningTask);
+    p_runningTaskPool->addTask(m_currentThreadId, p_currentRunningTask);
   }
 }
 
@@ -134,7 +118,7 @@ static void threadFunction(int threadId) noexcept {
     Task* task = p_toStartTaskPool->getNextTask(m_currentThreadId);
     if(task != nullptr) {
       startTask(task);
-    } else if ( (task = findRunningTask(m_currentThreadId)) != nullptr) {
+    } else if ( (task = p_runningTaskPool->getNextTask(m_currentThreadId)) != nullptr) {
       resumeTask(task);
     } else {
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -144,9 +128,9 @@ static void threadFunction(int threadId) noexcept {
 
 void startThreadPool(std::size_t numThreads) noexcept {
 
-  p_toStartTaskPool            = new TaskPool{numThreads};
+  p_toStartTaskPool     = new TaskPool{numThreads};
+  p_runningTaskPool     = new TaskPool{numThreads};
   m_threadMainContexts  = new Context[numThreads];
-  m_runningTasks        = new std::queue<Task*>[numThreads];
   m_numThreads          = numThreads;
   m_isRunning           = new std::atomic<bool>[m_numThreads];
   p_threads             = new std::thread*[m_numThreads];
@@ -169,8 +153,8 @@ void stopThreadPool() noexcept {
 
   delete [] p_threads;
   delete [] m_isRunning;
-  delete [] m_runningTasks;
   delete [] m_threadMainContexts;
+  delete p_runningTaskPool;
   delete p_toStartTaskPool;
 }
 

@@ -59,6 +59,7 @@ ErrorCode FileStorage::create( const std::string& path, const FileStorageConfig&
 
   m_config = config;
   m_pageFiller.resize(getPageSize(),'\0');
+  m_size = bytesToPage(m_dataFile.tellg());
   
   // Reserve space in m_configFile
   m_configFile.seekp(0,std::ios_base::beg);
@@ -111,7 +112,7 @@ ErrorCode FileStorage::reserve( const uint32_t& numPages, pageId_t* pageId ) noe
 }
 
 ErrorCode FileStorage::read( char* data, const pageId_t& pageId ) noexcept {
-  if(pageId == 0 || pageId >= m_size) {
+  if(pageId < 0 || pageId >= m_size) {
     return ErrorCode::E_STORAGE_OUT_OF_BOUNDS_PAGE;
   }
   m_dataFile.seekg(pageToBytes(pageId), std::ios_base::beg);
@@ -126,7 +127,7 @@ ErrorCode FileStorage::read( char* data, const pageId_t& pageId ) noexcept {
 }
 
 ErrorCode FileStorage::write( const char* data, const pageId_t& pageId ) noexcept {
-  if(pageId == 0 || pageId >= m_size) {
+  if(pageId < 0 || pageId >= m_size) {
     return ErrorCode::E_STORAGE_OUT_OF_BOUNDS_PAGE;
   }
   m_dataFile.seekp(pageToBytes(pageId), std::ios_base::beg);

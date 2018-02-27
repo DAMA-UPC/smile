@@ -7,6 +7,8 @@
 #include <queue>
 #include <thread>
 
+#include <iostream>
+
 
 SMILE_NS_BEGIN
 
@@ -60,17 +62,17 @@ static void finalizeCurrentRunningTask() {
   if(p_currentRunningTask->m_finished) {
     if(p_currentRunningTask->p_syncCounter != nullptr) {
       int32_t last = p_currentRunningTask->p_syncCounter->fetch_decrement();
-      if(last == 1) {
+      /*if(last == 1) {
         if(p_currentRunningTask->p_parent != nullptr) {
           p_runningTaskPool->addTask(m_currentThreadId, p_currentRunningTask->p_parent);
         }
-      }
+      }*/
     }
     delete p_currentRunningTask; // TODO: If a pool is used, reset the task and put it into the pool
-    p_currentRunningTask = nullptr;
   } else {
     p_runningTaskPool->addTask(m_currentThreadId, p_currentRunningTask);
   }
+  p_currentRunningTask = nullptr;
 }
 
 /**
@@ -101,7 +103,7 @@ static void startTask(TaskContext* taskContext) noexcept {
  */
 static void resumeTask(TaskContext* runningTask) {
   p_currentRunningTask = runningTask;
-  p_currentRunningTask->m_context = runningTask->m_context.resume();
+  p_currentRunningTask->m_context = p_currentRunningTask->m_context.resume();
   finalizeCurrentRunningTask();
 }
 
@@ -165,6 +167,13 @@ void executeTaskAsync(uint32_t threadId, Task task, SyncCounter* counter ) noexc
   if(taskContext->p_syncCounter != nullptr) {
     taskContext->p_syncCounter->fetch_increment();
   }
+
+  if(getCurrentThreadId() != INVALID_THREAD_ID ) {
+    taskContext->p_parent = p_currentRunningTask;
+  } else {
+    taskContext->p_parent = nullptr;
+  }
+
   p_toStartTaskPool->addTask(threadId, taskContext);
 } 
 

@@ -46,7 +46,7 @@ private:
   /**
    * @brief Array of lockfree queues. There is one per thread.
    */
-  lockfree::queue<TaskContext*>*  m_queues;
+  lockfree::queue<TaskContext*>**  m_queues;
 
   /**
    * @brief The number of queues

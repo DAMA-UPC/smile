@@ -25,9 +25,9 @@ int32_t SyncCounter::fetch_decrement() {
 
 void SyncCounter::join() {
   while(m_counter.load() != 0) {
-    if(getCurrentThreadId() == INVALID_THREAD_ID) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    } else {
+    if(getCurrentThreadId() == INVALID_THREAD_ID) { // if this is a non-pool thread
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    } else { // if this is a lightweight thread
       yield();
     }
   }

@@ -1,7 +1,7 @@
 
 
 #ifndef _TASKING_THREAD_POOL_H_
-#define _TASKING_THREAD_POOL_H_ value
+#define _TASKING_THREAD_POOL_H_
 
 #include "../base/base.h"
 #include "task.h"

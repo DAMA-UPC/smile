@@ -8,10 +8,7 @@
 #include <thread>
 
 
-
-
 SMILE_NS_BEGIN
-
 
 /**
  * @brief Atomic booleans to control threads running
@@ -124,7 +121,7 @@ static void threadFunction(int threadId) noexcept {
     } else if ( (task = p_runningTaskPool->getNextTask(m_currentThreadId)) != nullptr) {
       resumeTask(task);
     } else {
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
   }
 }

@@ -161,7 +161,6 @@ void stopThreadPool() noexcept {
 }
 
 void executeTaskAsync(uint32_t threadId, Task task, SyncCounter* counter ) noexcept {
-  assert(m_currentThreadId == INVALID_THREAD_ID);
   TaskContext* taskContext = new TaskContext{task, counter};
   if(taskContext->p_syncCounter != nullptr) {
     taskContext->p_syncCounter->fetch_increment();

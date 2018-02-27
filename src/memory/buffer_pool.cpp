@@ -11,7 +11,6 @@ BufferPool::BufferPool( FileStorage* storage, const BufferPoolConfig& config ) n
 	uint32_t pageSizeKB = p_storage->getPageSize() / 1024;
 	uint32_t poolElems = config.m_poolSizeKB / pageSizeKB;
 	m_descriptors.resize(poolElems);
-	m_allocationTable.resize(poolElems);
 	m_nextCSVictim = 0;
 }
 
@@ -56,8 +55,8 @@ ErrorCode BufferPool::release( const pageId_t& pId ) noexcept {
 		// Delete page entry from buffer table.
 		m_bufferToPageMap.erase(m_descriptors[bId].m_pageId);
 
-		// Set buffer as not allocated
-		m_allocationTable.set(bId, 0);
+		// Set buffer as not used
+		m_descriptors[bId].m_inUse = false;
 
 		// If the buffer is dirty we must store it to disk.
 		if( m_descriptors[bId].m_dirty ) {
@@ -144,8 +143,8 @@ ErrorCode BufferPool::unpin( const pageId_t& pId ) noexcept {
 
 ErrorCode BufferPool::checkpoint() noexcept {
 	// Look for dirty Buffer Pool slots and flush them to disk.
-	for (int bId = 0; bId < m_allocationTable.size(); ++bId) {
-		if (m_allocationTable.test(bId) && m_descriptors[bId].m_dirty) {
+	for (int bId = 0; bId < m_descriptors.size(); ++bId) {
+		if (m_descriptors[bId].m_inUse && m_descriptors[bId].m_dirty) {
 			ErrorCode error = p_storage->write(getBuffer(bId), m_descriptors[bId].m_pageId);
 			if ( error != ErrorCode::E_NO_ERROR ) {
 				return error;
@@ -176,9 +175,9 @@ ErrorCode BufferPool::getEmptySlot( bufferId_t* bId ) noexcept {
 	bool found = false;
 
 	// Look for an empty Buffer Pool slot.
-	for (int i = 0; i < m_allocationTable.size() && !found; ++i) {
-		if (!m_allocationTable.test(i)) {
-			m_allocationTable.set(i);
+	for (int i = 0; i < m_descriptors.size() && !found; ++i) {
+		if (!m_descriptors[i].m_inUse) {
+			m_descriptors[i].m_inUse = true;
 			*bId = i;
 			found = true;
 		}

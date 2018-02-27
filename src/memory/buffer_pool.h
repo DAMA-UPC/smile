@@ -39,6 +39,10 @@ struct BufferHandler {
 
 struct bufferDescriptor {
     /**
+     * Whether a buffer slot is currently being used or not.
+     */
+    bool        m_inUse         = false;
+    /**
      * Number of current references of the page.
      */
     uint64_t    m_referenceCount = 0;
@@ -51,7 +55,7 @@ struct bufferDescriptor {
     /**
      * Whether the buffer is dirty or not.
      */
-    bool        m_dirty         = 0;
+    bool        m_dirty         = false;
 
     /**
      * pageId_t on disk of the loaded page.
@@ -153,7 +157,7 @@ class BufferPool {
     std::vector<bufferDescriptor> m_descriptors;
 
     /**
-     * Bitset representing whether a Buffer Pool slot is allocated (1) or not (0).
+     * Bitset representing whether a disk page is allocated (1) or not (0).
      */
     boost::dynamic_bitset<> m_allocationTable;
 

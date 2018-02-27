@@ -7,41 +7,42 @@
 
 SMILE_NS_BEGIN
 
-uint32_t* finalNumbers;
-
-void testFunction( void* id ) {
-  uint32_t number = *(uint32_t*)id;
-  finalNumbers[getCurrentThreadId()]+=number;
+void testFunction( void* arg ) {
+  int32_t* result = reinterpret_cast<int32_t*>(arg);
+  *result=getCurrentThreadId();
 }
 
 /**
- * Creates two tasks per thread, each of them accumulating a number into the
- * finalNumbers array.
+ * Creates one task per thread, where each task stores its therad id in the
+ * result array
  * */
 TEST(FileStorageTest, FileStorageOpen) {
 
   uint32_t numThreads = 4;
 
-  SyncCounter syncCounter;
-  finalNumbers = new uint32_t[numThreads];
-  uint32_t numbers[numThreads*2];
+  int32_t* result = new int32_t[numThreads];
+
+  // Starts Thread Pool
   startThreadPool(numThreads);
+
+  SyncCounter syncCounter;
   for(int i = 0; i < numThreads; ++i) {
-    numbers[i] = i;
-    numbers[numThreads+i] = i;
-    finalNumbers[i] = 0;
-    executeTaskAsync(i, {testFunction, &numbers[i]}, &syncCounter);
-    executeTaskAsync(i, {testFunction, &numbers[numThreads+i]}, &syncCounter);
+    executeTaskAsync(i, {testFunction, &result[i]}, &syncCounter);
+    executeTaskAsync(i, {testFunction, &result[i]}, &syncCounter);
   }
 
+  // Synchronize with the running tasks
   syncCounter.join();
 
+  // Stops thread pool
   stopThreadPool();
 
-  for(int i = 0; i < numThreads;++i) {
-    ASSERT_TRUE(finalNumbers[i] == 2*i);
+  // Checks the results
+  for(int i = 0; i < numThreads; ++i) {
+    ASSERT_TRUE(result[i] == i);
   }
-  delete finalNumbers;
+
+  delete [] result;
 }
 
 SMILE_NS_END

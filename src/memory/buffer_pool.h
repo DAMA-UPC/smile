@@ -142,6 +142,15 @@ class BufferPool {
     ErrorCode getEmptySlot( bufferId_t* bId ) noexcept;
 
     /**
+     * Reserve a set of pages and manage the increments of the allocation table.
+     * 
+     * @param numPages The number of pages to reserve
+     * @param pageId The first reserved pageId
+     * @return false if there was an error, true otherwise
+     */
+    ErrorCode reservePages( const uint32_t& numPages, pageId_t* pageId ) noexcept;
+
+    /**
      * The file storage where this buffer pool will be persisted.
      **/
     FileStorage* p_storage;

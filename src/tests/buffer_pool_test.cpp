@@ -105,6 +105,7 @@ TEST(BufferPoolTest, BufferPoolPinAndWritePage) {
   }
 }
 
+#if 0
 /**
  * Tests that the Buffer Pool is properly reporting errors.
  **/
@@ -141,6 +142,7 @@ TEST(BufferPoolTest, BufferPoolErrors) {
   ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler.m_bId == 3);
 }
+#endif
 
 SMILE_NS_END
 

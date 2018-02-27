@@ -15,19 +15,34 @@ BufferPool::BufferPool( FileStorage* storage, const BufferPoolConfig& config ) n
 }
 
 ErrorCode BufferPool::alloc( BufferHandler* bufferHandler ) noexcept {
-	// Get an empty buffer pool slot for the page.
 	bufferId_t bId;
+	pageId_t pId;
+
+	// Get an empty buffer pool slot for the page.
 	ErrorCode error = getEmptySlot(&bId);
 	if ( error != ErrorCode::E_NO_ERROR ) {
 		return error;
 	}
 
-	// Reserve space in disk and get the corresponding pageId_t.
-	pageId_t pId;
-	error = p_storage->reserve(1, &pId);
-	if ( error != ErrorCode::E_NO_ERROR ) {
-		return error;
+	// Look if there is an unallocated disk page.
+	bool found = false;
+	for (uint64_t i = 0; i < m_allocationTable.size() && !found; ++i) {
+		if (!m_allocationTable.test(i)) {
+			found = true;
+			pId = i;
+		}
 	}
+
+	// If there is no more free space in disk, reserve space and get the corresponding pageId_t.
+	if (!found) {
+		error = reservePages(1, &pId);
+		if ( error != ErrorCode::E_NO_ERROR ) {
+			return error;
+		}
+	}
+
+	// Set page as allocated.
+	m_allocationTable.set(pId);
 
 	m_bufferToPageMap[pId] = bId;
 
@@ -46,7 +61,11 @@ ErrorCode BufferPool::alloc( BufferHandler* bufferHandler ) noexcept {
 }
 
 ErrorCode BufferPool::release( const pageId_t& pId ) noexcept {
-	// Check if the page is in the Buffer Pool.	
+	if (pId > m_allocationTable.size()) {
+		return ErrorCode::E_BUFPOOL_PAGE_NOT_PRESENT;
+	}
+
+	// Evict the page in case it is in the Buffer Pool
 	std::map<pageId_t, bufferId_t>::iterator it;
 	it = m_bufferToPageMap.find(pId);
 	if (it != m_bufferToPageMap.end()) {
@@ -72,11 +91,9 @@ ErrorCode BufferPool::release( const pageId_t& pId ) noexcept {
 		m_descriptors[bId].m_dirty = 0;
 		m_descriptors[bId].m_pageId = 0;
 	}
-	else {
-		return ErrorCode::E_BUFPOOL_PAGE_NOT_PRESENT;
-	}
-
-	// TODO: notify storage to set as free?
+	
+	// Set page as unallocated.
+	m_allocationTable.set(pId, 0);
 
 	return ErrorCode::E_NO_ERROR;
 }
@@ -224,6 +241,21 @@ ErrorCode BufferPool::getEmptySlot( bufferId_t* bId ) noexcept {
 
 	if (!found)	{
 		return ErrorCode::E_BUFPOOL_OUT_OF_MEMORY;
+	}
+
+	return ErrorCode::E_NO_ERROR;
+}
+
+ErrorCode BufferPool::reservePages( const uint32_t& numPages, pageId_t* pageId ) noexcept {
+	// Reserve space in disk.
+	ErrorCode error = p_storage->reserve(numPages, pageId);
+	if ( error != ErrorCode::E_NO_ERROR ) {
+		return error;
+	}
+
+	// Increment the Allocation Table size to fit the new pages.
+	for (uint32_t i = 0; i < numPages; ++i) {
+		m_allocationTable.push_back(0);
 	}
 
 	return ErrorCode::E_NO_ERROR;

@@ -177,7 +177,6 @@ void executeTaskSync(uint32_t threadId,
 }
 
 uint32_t getCurrentThreadId() noexcept {
-  assert(m_currentThreadId != INVALID_THREAD_ID);
   return m_currentThreadId;
 }
 

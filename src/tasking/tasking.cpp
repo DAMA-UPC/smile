@@ -162,7 +162,7 @@ void stopThreadPool() noexcept {
   delete p_toStartTaskPool;
 }
 
-void executeTaskAsync(uint32_t threadId, Task task, SyncCounter* counter ) noexcept {
+void executeTaskAsync(uint32_t queueId, Task task, SyncCounter* counter ) noexcept {
   TaskContext* taskContext = new TaskContext{task, counter};
   if(taskContext->p_syncCounter != nullptr) {
     taskContext->p_syncCounter->fetch_increment();
@@ -174,13 +174,13 @@ void executeTaskAsync(uint32_t threadId, Task task, SyncCounter* counter ) noexc
     taskContext->p_parent = nullptr;
   }
 
-  p_toStartTaskPool->addTask(threadId, taskContext);
+  p_toStartTaskPool->addTask(queueId, taskContext);
 } 
 
-void executeTaskSync(uint32_t threadId, 
+void executeTaskSync(uint32_t queueId, 
                      Task task, 
                      SyncCounter* counter) noexcept {
-  executeTaskAsync(threadId, task, counter);
+  executeTaskAsync(queueId, task, counter);
   counter->join();
 }
 

@@ -19,7 +19,7 @@ TaskPool::~TaskPool() noexcept {
 }
 
 TaskContext* TaskPool::getNextTask(uint32_t queueId) noexcept {
-  assert(threadId < m_num_queues && threadId >= 0);
+  assert(queueId < m_numQueues && queueId >= 0);
 
   TaskContext* task;
   if(m_queues[queueId].pop(task)) {
@@ -29,7 +29,7 @@ TaskContext* TaskPool::getNextTask(uint32_t queueId) noexcept {
 }
 
 void TaskPool::addTask(uint32_t queueId, TaskContext* task) noexcept {
-  assert(threadId < m_num_queues && threadId >= 0);
+  assert(queueId < m_numQueues && queueId >= 0);
   m_queues[queueId].push(task);
 }
 

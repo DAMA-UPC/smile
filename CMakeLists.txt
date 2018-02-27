@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 2.6 FATAL_ERROR)
 project(SMILE)
+set( CMAKE_EXPORT_COMPILE_COMMANDS 1 )
+
 #
 # SPARKSEE version (major.minor.release)
 #
@@ -63,7 +65,7 @@ set(GTEST_LIBRARIES "gtest")
 set(Boost_USE_STATIC_LIBS OFF) 
 set(Boost_USE_MULTITHREADED ON)  
 set(Boost_USE_STATIC_RUNTIME OFF) 
-FIND_PACKAGE(Boost 1.58 COMPONENTS program_options date_time thread system locale REQUIRED)
+FIND_PACKAGE(Boost 1.66 COMPONENTS program_options date_time thread system locale context REQUIRED)
 
 #
 # Set output folders

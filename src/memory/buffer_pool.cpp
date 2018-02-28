@@ -12,6 +12,9 @@ BufferPool::BufferPool( FileStorage* storage, const BufferPoolConfig& config ) n
 	uint32_t poolElems = config.m_poolSizeKB / pageSizeKB;
 	m_descriptors.resize(poolElems);
 	m_nextCSVictim = 0;
+
+	// Retrieve m_allocationTable state from disk.
+	loadAllocationTable();
 }
 
 ErrorCode BufferPool::alloc( BufferHandler* bufferHandler ) noexcept {
@@ -63,6 +66,10 @@ ErrorCode BufferPool::alloc( BufferHandler* bufferHandler ) noexcept {
 }
 
 ErrorCode BufferPool::release( const pageId_t& pId ) noexcept {
+	if (pId > p_storage->size()) {
+		return ErrorCode::E_BUFPOOL_PAGE_NOT_ALLOCATED;
+	}
+	
 	if (isProtected(pId)) {
 		return ErrorCode::E_BUFPOOL_UNABLE_TO_ACCCESS_PROTECTED_PAGE;	
 	}
@@ -101,6 +108,10 @@ ErrorCode BufferPool::release( const pageId_t& pId ) noexcept {
 }
 
 ErrorCode BufferPool::pin( const pageId_t& pId, BufferHandler* bufferHandler ) noexcept {
+	if (pId > p_storage->size()) {
+		return ErrorCode::E_BUFPOOL_PAGE_NOT_ALLOCATED;
+	}
+
 	if (isProtected(pId)) {
 		return ErrorCode::E_BUFPOOL_UNABLE_TO_ACCCESS_PROTECTED_PAGE;	
 	}
@@ -150,6 +161,10 @@ ErrorCode BufferPool::pin( const pageId_t& pId, BufferHandler* bufferHandler ) n
 }
 
 ErrorCode BufferPool::unpin( const pageId_t& pId ) noexcept {
+	if (pId > p_storage->size()) {
+		return ErrorCode::E_BUFPOOL_PAGE_NOT_ALLOCATED;
+	}
+
 	if (isProtected(pId)) {
 		return ErrorCode::E_BUFPOOL_UNABLE_TO_ACCCESS_PROTECTED_PAGE;	
 	}
@@ -179,6 +194,12 @@ ErrorCode BufferPool::checkpoint() noexcept {
 
 			m_descriptors[bId].m_dirty = 0;
 		}
+	}
+
+	// Save m_allocationTable state to disk.
+	ErrorCode error = storeAllocationTable();
+	if ( error != ErrorCode::E_NO_ERROR ) {
+		return error;
 	}
 
 	return ErrorCode::E_NO_ERROR;

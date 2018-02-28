@@ -254,11 +254,51 @@ ErrorCode BufferPool::reservePages( const uint32_t& numPages, pageId_t* pageId )
 	}
 
 	// Increment the Allocation Table size to fit the new pages.
-	for (uint32_t i = 0; i < numPages; ++i) {
-		m_allocationTable.push_back(0);
-	}
+	uint64_t numTotalPages = p_storage->size();
+	uint64_t bitsPerPage = 8*p_storage->getPageSize();
+	uint64_t numBitmapPages = numTotalPages/bitsPerPage + 1;
+	uint64_t bitmapSize = numBitmapPages*bitsPerPage;
+	m_allocationTable.resize(bitmapSize);
 
 	return ErrorCode::E_NO_ERROR;
+}
+
+ErrorCode BufferPool::loadAllocationTable() noexcept {
+	uint64_t numTotalPages = p_storage->size();
+	uint64_t bitsPerPage = 8*p_storage->getPageSize();
+	uint64_t numBitmapPages = numTotalPages/bitsPerPage + 1;
+	uint64_t bitmapSize = numBitmapPages*bitsPerPage;
+	uint64_t blockSize = boost::dynamic_bitset<>::bits_per_block;
+
+	std::vector<boost::dynamic_bitset<>::block_type> v(bitmapSize/blockSize);
+
+	for (int i = 0; i < bitsPerPage*numBitmapPages; ++bitsPerPage) {
+    	ErrorCode error = p_storage->read(reinterpret_cast<char*>(&v[i/blockSize]), i);
+    	if ( error != ErrorCode::E_NO_ERROR ) {
+			return error;
+		}
+    }
+
+    from_block_range(v.begin(), v.end(), m_allocationTable);
+
+    return ErrorCode::E_NO_ERROR;
+}
+
+ErrorCode BufferPool::storeAllocationTable() noexcept {
+    std::vector<boost::dynamic_bitset<>::block_type> v(m_allocationTable.num_blocks());
+    to_block_range(m_allocationTable, v.begin());
+
+    uint64_t bitsPerPage = 8*p_storage->getPageSize(); 
+    uint64_t blockSize = boost::dynamic_bitset<>::bits_per_block;
+
+    for (int i = 0; i < m_allocationTable.size(); ++bitsPerPage) {
+    	ErrorCode error = p_storage->write(reinterpret_cast<char*>(&v[i/blockSize]), i);
+    	if ( error != ErrorCode::E_NO_ERROR ) {
+			return error;
+		}
+    }
+
+    return ErrorCode::E_NO_ERROR;
 }
 
 SMILE_NS_END

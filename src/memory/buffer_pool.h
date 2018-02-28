@@ -151,6 +151,20 @@ class BufferPool {
     ErrorCode reservePages( const uint32_t& numPages, pageId_t* pageId ) noexcept;
 
     /**
+     * Loads the allocation table from disk.
+     * 
+     * @return false if table is loaded without issues, true otherwise.
+     */
+    ErrorCode loadAllocationTable() noexcept;
+
+    /**
+     * Stores the allocation table in disk.
+     * 
+     * @return false if the table is stored without issues, true otherwise.
+     */
+    ErrorCode storeAllocationTable() noexcept;
+
+    /**
      * The file storage where this buffer pool will be persisted.
      **/
     FileStorage* p_storage;

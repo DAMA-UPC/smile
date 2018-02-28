@@ -69,7 +69,7 @@ ErrorCode BufferPool::release( const pageId_t& pId ) noexcept {
 	if (pId > p_storage->size()) {
 		return ErrorCode::E_BUFPOOL_PAGE_NOT_ALLOCATED;
 	}
-	
+
 	if (isProtected(pId)) {
 		return ErrorCode::E_BUFPOOL_UNABLE_TO_ACCCESS_PROTECTED_PAGE;	
 	}
@@ -320,13 +320,14 @@ ErrorCode BufferPool::loadAllocationTable() noexcept {
 
 	std::vector<boost::dynamic_bitset<>::block_type> v(bitmapSize/blockSize);
 
-	for (uint64_t i = 0; i < bitmapSize; i+=bitsPerPage) {
+	for (uint64_t i = 0; i < bitmapSize; i += bitsPerPage) {
     	ErrorCode error = p_storage->read(reinterpret_cast<char*>(&v[i/blockSize]), i);
     	if ( error != ErrorCode::E_NO_ERROR ) {
 			return error;
 		}
     }
 
+    m_allocationTable.resize(bitmapSize);
     from_block_range(v.begin(), v.end(), m_allocationTable);
 
     return ErrorCode::E_NO_ERROR;
@@ -339,7 +340,7 @@ ErrorCode BufferPool::storeAllocationTable() noexcept {
     uint64_t bitsPerPage = 8*p_storage->getPageSize(); 
     uint64_t blockSize = boost::dynamic_bitset<>::bits_per_block;
 
-    for (uint64_t i = 0; i < m_allocationTable.size(); i+=bitsPerPage) {
+    for (uint64_t i = 0; i < m_allocationTable.size(); i += bitsPerPage) {
     	ErrorCode error = p_storage->write(reinterpret_cast<char*>(&v[i/blockSize]), i);
     	if ( error != ErrorCode::E_NO_ERROR ) {
 			return error;

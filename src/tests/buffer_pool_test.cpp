@@ -147,6 +147,63 @@ TEST(BufferPoolTest, BufferPoolErrors) {
   ASSERT_TRUE(bufferHandler.m_bId == 3);
 }
 
+/**
+ * Tests that the Buffer Pool is correctly storing/retrieving the m_allocationTable 
+ * information from disk.
+ **/
+TEST(BufferPoolTest, BufferPoolPersistence) {
+  FileStorage fileStorage;
+  ASSERT_TRUE(fileStorage.create("./test.db", FileStorageConfig{4}, true) == ErrorCode::E_NO_ERROR);
+  BufferPool bufferPool(&fileStorage, BufferPoolConfig{64*8192});
+  BufferHandler bufferHandler;
+
+  // Allocate some pages to modify the m_allocationTable.
+  for (uint64_t i = 0; i < (4*1024*8)-1; ++i) {
+    ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
+    ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
+  }
+
+  // Force BufferPool to flush m_allocationTable to disk.
+  bufferPool.checkpoint();
+
+  // Read the stored m_allocationTable.
+  boost::dynamic_bitset<> stored1;
+  uint64_t bitsPerPage = 8*fileStorage.getPageSize(); 
+  uint64_t blockSize = boost::dynamic_bitset<>::bits_per_block;
+  uint64_t numTotalPages = fileStorage.size();
+  uint64_t numBitmapPages = numTotalPages/bitsPerPage + 1;
+  uint64_t bitmapSize = numBitmapPages*bitsPerPage;
+  std::vector<boost::dynamic_bitset<>::block_type> v1(bitmapSize/blockSize);
+  for (uint64_t i = 0; i < bitmapSize; i+=bitsPerPage) {
+    fileStorage.read(reinterpret_cast<char*>(&v1[i/blockSize]), i);
+  }
+  stored1.resize(bitmapSize);
+  from_block_range(v1.begin(), v1.end(), stored1);
+
+  // Create a new BufferPool that uses the already existing storage.
+  // It will load the m_allocationTable information from disk to memory.
+  BufferPool bufferPoolAux(&fileStorage, BufferPoolConfig{64*8192});
+
+  // Force the new BufferPool to flush the loaded m_allocationTable back to disk.
+  bufferPoolAux.checkpoint();
+
+  // Read the stored m_allocationTable by the new BufferPool.
+  boost::dynamic_bitset<> stored2;
+  std::vector<boost::dynamic_bitset<>::block_type> v2(bitmapSize/blockSize);
+  for (uint64_t i = 0; i < bitmapSize; i+=bitsPerPage) {
+    fileStorage.read(reinterpret_cast<char*>(&v2[i/blockSize]), i);
+  }
+  stored2.resize(bitmapSize);
+  from_block_range(v2.begin(), v2.end(), stored2);
+
+  // Check that the both stored m_allocationTable are equal. This means, the
+  // new BufferPool has read and written correctly the m_allocationTable values.
+  ASSERT_TRUE(stored1.size() == stored2.size());
+  for (uint64_t i = 0; i < stored1.size(); ++i) {
+    ASSERT_TRUE(stored1.test(i) == stored2.test(i));
+  }
+}
+
 SMILE_NS_END
 
 int main(int argc, char* argv[]){

@@ -120,7 +120,7 @@ class BufferPool {
      * 
      * @param pId pageId_t of the page to be set as dirty.
      */
-    void setPageDirty( const pageId_t& pId ) noexcept;
+    ErrorCode setPageDirty( const pageId_t& pId ) noexcept;
 
   private:
 
@@ -163,6 +163,14 @@ class BufferPool {
      * @return false if the table is stored without issues, true otherwise.
      */
     ErrorCode storeAllocationTable() noexcept;
+
+    /**
+     * Returns whether a page is protected (used for storing DB state) or not.
+     * 
+     * @param pId pageId_t of the page to check.
+     * @return true if the page is protected, false otherwise.
+     */
+    bool isProtected( const pageId_t& pId ) noexcept;
 
     /**
      * The file storage where this buffer pool will be persisted.

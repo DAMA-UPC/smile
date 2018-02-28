@@ -26,10 +26,12 @@ ErrorCode BufferPool::alloc( BufferHandler* bufferHandler ) noexcept {
 
 	// Look if there is an unallocated disk page.
 	bool found = false;
-	for (uint64_t i = 0; i < m_allocationTable.size() && !found; ++i) {
+	for (uint64_t i = 0; i < p_storage->size() && !found; ++i) {
 		if (!m_allocationTable.test(i)) {
-			found = true;
-			pId = i;
+			if (!isProtected(i)) {
+				found = true;
+				pId = i;
+			}
 		}
 	}
 
@@ -61,8 +63,8 @@ ErrorCode BufferPool::alloc( BufferHandler* bufferHandler ) noexcept {
 }
 
 ErrorCode BufferPool::release( const pageId_t& pId ) noexcept {
-	if (pId > m_allocationTable.size()) {
-		return ErrorCode::E_BUFPOOL_PAGE_NOT_PRESENT;
+	if (isProtected(pId)) {
+		return ErrorCode::E_BUFPOOL_UNABLE_TO_ACCCESS_PROTECTED_PAGE;	
 	}
 
 	// Evict the page in case it is in the Buffer Pool
@@ -99,6 +101,10 @@ ErrorCode BufferPool::release( const pageId_t& pId ) noexcept {
 }
 
 ErrorCode BufferPool::pin( const pageId_t& pId, BufferHandler* bufferHandler ) noexcept {
+	if (isProtected(pId)) {
+		return ErrorCode::E_BUFPOOL_UNABLE_TO_ACCCESS_PROTECTED_PAGE;	
+	}
+
 	bufferId_t bId;
 
 	// Look for the desired page in the Buffer Pool.
@@ -144,6 +150,10 @@ ErrorCode BufferPool::pin( const pageId_t& pId, BufferHandler* bufferHandler ) n
 }
 
 ErrorCode BufferPool::unpin( const pageId_t& pId ) noexcept {
+	if (isProtected(pId)) {
+		return ErrorCode::E_BUFPOOL_UNABLE_TO_ACCCESS_PROTECTED_PAGE;	
+	}
+
 	// Decrement page's reference count.
 	std::map<pageId_t, bufferId_t>::iterator it;
 	it = m_bufferToPageMap.find(pId);
@@ -174,13 +184,18 @@ ErrorCode BufferPool::checkpoint() noexcept {
 	return ErrorCode::E_NO_ERROR;
 }
 
-void BufferPool::setPageDirty( const pageId_t& pId ) noexcept {
+ErrorCode BufferPool::setPageDirty( const pageId_t& pId ) noexcept {
 	std::map<pageId_t, bufferId_t>::iterator it;
 	it = m_bufferToPageMap.find(pId);
 	if (it != m_bufferToPageMap.end()) {
 		bufferId_t bId = it->second;
 		m_descriptors[bId].m_dirty = 1;
 	}
+	else {
+		return ErrorCode::E_BUFPOOL_PAGE_NOT_PRESENT;
+	}
+
+	return ErrorCode::E_NO_ERROR;
 }
 
 char* BufferPool::getBuffer( const bufferId_t& bId ) noexcept {
@@ -251,9 +266,21 @@ ErrorCode BufferPool::reservePages( const uint32_t& numPages, pageId_t* pageId )
 	ErrorCode error = p_storage->reserve(numPages, pageId);
 	if ( error != ErrorCode::E_NO_ERROR ) {
 		return error;
+	} 
+
+	// If the first reserved page is protected, an extra page must be reserved.
+	if (isProtected(*pageId)) {
+		pageId_t pIdToReturn = (*pageId) + 1;
+
+		ErrorCode error = p_storage->reserve(1, pageId);
+		if ( error != ErrorCode::E_NO_ERROR ) {
+			return error;
+		}
+
+		*pageId = pIdToReturn;
 	}
 
-	// Increment the Allocation Table size to fit the new pages.
+	// Increment the Allocation Table size to fit the new pages (if needed).
 	uint64_t numTotalPages = p_storage->size();
 	uint64_t bitsPerPage = 8*p_storage->getPageSize();
 	uint64_t numBitmapPages = numTotalPages/bitsPerPage + 1;
@@ -299,6 +326,17 @@ ErrorCode BufferPool::storeAllocationTable() noexcept {
     }
 
     return ErrorCode::E_NO_ERROR;
+}
+
+bool BufferPool::isProtected( const pageId_t& pId ) noexcept {
+	bool retval = false;
+
+	uint64_t bitsPerPage = 8*p_storage->getPageSize();
+	if (pId%bitsPerPage == 0) {
+		retval = true;
+	}
+
+	return retval;
 }
 
 SMILE_NS_END

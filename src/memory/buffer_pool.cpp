@@ -272,7 +272,7 @@ ErrorCode BufferPool::loadAllocationTable() noexcept {
 
 	std::vector<boost::dynamic_bitset<>::block_type> v(bitmapSize/blockSize);
 
-	for (int i = 0; i < bitsPerPage*numBitmapPages; ++bitsPerPage) {
+	for (uint64_t i = 0; i < bitmapSize; i+=bitsPerPage) {
     	ErrorCode error = p_storage->read(reinterpret_cast<char*>(&v[i/blockSize]), i);
     	if ( error != ErrorCode::E_NO_ERROR ) {
 			return error;
@@ -291,7 +291,7 @@ ErrorCode BufferPool::storeAllocationTable() noexcept {
     uint64_t bitsPerPage = 8*p_storage->getPageSize(); 
     uint64_t blockSize = boost::dynamic_bitset<>::bits_per_block;
 
-    for (int i = 0; i < m_allocationTable.size(); ++bitsPerPage) {
+    for (uint64_t i = 0; i < m_allocationTable.size(); i+=bitsPerPage) {
     	ErrorCode error = p_storage->write(reinterpret_cast<char*>(&v[i/blockSize]), i);
     	if ( error != ErrorCode::E_NO_ERROR ) {
 			return error;

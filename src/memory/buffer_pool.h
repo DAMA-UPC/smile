@@ -76,6 +76,29 @@ class BufferPool {
     ~BufferPool() noexcept = default;
 
     /**
+     * Opens the Buffer Pool with a file storage at the given path.
+     * 
+     * @param in the path to the storage.
+     * @return false if the storage was opened correctly.
+     **/
+    ErrorCode open( const std::string& path ) noexcept;
+
+    /**
+     * Opens the Buffer Pool with a file storage at the given path.
+     * 
+     * @param in the path to the storage to create.
+     * @return in the configuration of the storage.
+     **/
+    ErrorCode create( const std::string& path, const FileStorageConfig& config, const bool& overwrite = false ) noexcept;
+
+    /**
+     * Closes the Buffer Pool.
+     * 
+     * @return false if the closing was successful.
+     **/
+    ErrorCode close() noexcept;
+
+    /**
      * Allocates a new page in the Buffer Pool.
      * 
      * @param bufferHandler BufferHandler for the allocated page.
@@ -176,6 +199,11 @@ class BufferPool {
      * The file storage where this buffer pool will be persisted.
      **/
     FileStorage* p_storage;
+
+    /**
+     * The Buffer Pool configuration data.
+     */
+    BufferPoolConfig m_config;
 
     /**
      * Buffer pool.

@@ -6,15 +6,61 @@ SMILE_NS_BEGIN
 
 BufferPool::BufferPool( FileStorage* storage, const BufferPoolConfig& config ) noexcept {
 	p_storage = storage;
-	p_pool = (char*) malloc( config.m_poolSizeKB*1024*sizeof(char) );
+	m_config = config;	
+}
 
+ErrorCode BufferPool::open( const std::string& path ) noexcept {
+	ErrorCode error = p_storage->open(path);
+	if ( error != ErrorCode::E_NO_ERROR ) {
+		return error;
+	}
+
+	p_pool = (char*) malloc( m_config.m_poolSizeKB*1024*sizeof(char) );
 	uint32_t pageSizeKB = p_storage->getPageSize() / 1024;
-	uint32_t poolElems = config.m_poolSizeKB / pageSizeKB;
+	uint32_t poolElems = m_config.m_poolSizeKB / pageSizeKB;
 	m_descriptors.resize(poolElems);
 	m_nextCSVictim = 0;
 
-	// Retrieve m_allocationTable state from disk.
-	loadAllocationTable();
+	error = loadAllocationTable();
+	if ( error != ErrorCode::E_NO_ERROR ) {
+		return error;
+	}
+
+	return ErrorCode::E_NO_ERROR;
+}
+
+ErrorCode BufferPool::create( const std::string& path, const FileStorageConfig& config, const bool& overwrite ) noexcept {
+	ErrorCode error = p_storage->create(path, config, overwrite);
+	if ( error != ErrorCode::E_NO_ERROR ) {
+		return error;
+	}
+
+	p_pool = (char*) malloc( m_config.m_poolSizeKB*1024*sizeof(char) );
+	uint32_t pageSizeKB = p_storage->getPageSize() / 1024;
+	uint32_t poolElems = m_config.m_poolSizeKB / pageSizeKB;
+	m_descriptors.resize(poolElems);
+	m_nextCSVictim = 0;
+
+	return ErrorCode::E_NO_ERROR;
+}
+
+ErrorCode BufferPool::close() noexcept {
+	ErrorCode error = checkpoint();
+	if ( error != ErrorCode::E_NO_ERROR ) {
+		return error;
+	}
+
+	error = p_storage->close();
+	if ( error != ErrorCode::E_NO_ERROR ) {
+		return error;
+	}
+
+	free(p_pool);
+	m_descriptors.clear();
+	m_allocationTable.clear();
+	m_bufferToPageMap.clear();
+
+	return ErrorCode::E_NO_ERROR;
 }
 
 ErrorCode BufferPool::alloc( BufferHandler* bufferHandler ) noexcept {
@@ -304,7 +350,7 @@ ErrorCode BufferPool::reservePages( const uint32_t& numPages, pageId_t* pageId )
 	// Increment the Allocation Table size to fit the new pages (if needed).
 	uint64_t numTotalPages = p_storage->size();
 	uint64_t bitsPerPage = 8*p_storage->getPageSize();
-	uint64_t numBitmapPages = numTotalPages/bitsPerPage + 1;
+	uint64_t numBitmapPages = numTotalPages/bitsPerPage + (numTotalPages%bitsPerPage != 0);
 	uint64_t bitmapSize = numBitmapPages*bitsPerPage;
 	m_allocationTable.resize(bitmapSize);
 
@@ -314,7 +360,7 @@ ErrorCode BufferPool::reservePages( const uint32_t& numPages, pageId_t* pageId )
 ErrorCode BufferPool::loadAllocationTable() noexcept {
 	uint64_t numTotalPages = p_storage->size();
 	uint64_t bitsPerPage = 8*p_storage->getPageSize();
-	uint64_t numBitmapPages = numTotalPages/bitsPerPage + 1;
+	uint64_t numBitmapPages = numTotalPages/bitsPerPage + (numTotalPages%bitsPerPage != 0);
 	uint64_t bitmapSize = numBitmapPages*bitsPerPage;
 	uint64_t blockSize = boost::dynamic_bitset<>::bits_per_block;
 

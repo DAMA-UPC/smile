@@ -8,6 +8,10 @@ BufferPool::BufferPool() noexcept {
 }
 
 ErrorCode BufferPool::open( const BufferPoolConfig& bpConfig, const std::string& path ) noexcept {
+	if ( bpConfig.m_poolSizeKB % (m_storage.getPageSize()/1024) != 0 ) {
+		return ErrorCode::E_BUFPOOL_POOL_SIZE_NOT_MULTIPLE_OF_PAGE_SIZE;
+	}
+
 	ErrorCode error = m_storage.open(path);
 	if ( error != ErrorCode::E_NO_ERROR ) {
 		return error;
@@ -29,6 +33,10 @@ ErrorCode BufferPool::open( const BufferPoolConfig& bpConfig, const std::string&
 }
 
 ErrorCode BufferPool::create( const BufferPoolConfig& bpConfig, const std::string& path, const FileStorageConfig& fsConfig, const bool& overwrite ) noexcept {
+	if ( bpConfig.m_poolSizeKB % fsConfig.m_pageSizeKB != 0 ) {
+		return ErrorCode::E_BUFPOOL_POOL_SIZE_NOT_MULTIPLE_OF_PAGE_SIZE;
+	}
+
 	ErrorCode error = m_storage.create(path, fsConfig, overwrite);
 	if ( error != ErrorCode::E_NO_ERROR ) {
 		return error;

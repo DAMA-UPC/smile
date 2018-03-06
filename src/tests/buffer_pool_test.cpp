@@ -142,6 +142,10 @@ TEST(BufferPoolTest, BufferPoolErrors) {
   ASSERT_TRUE(bufferPool.release(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler.m_bId == 3);
+
+  ASSERT_TRUE(bufferPool.close() == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPool.open(BufferPoolConfig{257}, "./test.db") == ErrorCode::E_BUFPOOL_POOL_SIZE_NOT_MULTIPLE_OF_PAGE_SIZE);
+  ASSERT_TRUE(bufferPool.create(BufferPoolConfig{257}, "./test.db", FileStorageConfig{64}, true) == ErrorCode::E_BUFPOOL_POOL_SIZE_NOT_MULTIPLE_OF_PAGE_SIZE);
 }
 
 /**

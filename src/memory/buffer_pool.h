@@ -71,7 +71,7 @@ class BufferPool {
 
     friend class Buffer;
 
-    BufferPool( FileStorage* storage, const BufferPoolConfig& config ) noexcept;
+    BufferPool() noexcept;
 
     ~BufferPool() noexcept = default;
 
@@ -81,7 +81,7 @@ class BufferPool {
      * @param in the path to the storage.
      * @return false if the storage was opened correctly.
      **/
-    ErrorCode open( const std::string& path ) noexcept;
+    ErrorCode open( const BufferPoolConfig& bpConfig, const std::string& path ) noexcept;
 
     /**
      * Opens the Buffer Pool with a file storage at the given path.
@@ -89,7 +89,7 @@ class BufferPool {
      * @param in the path to the storage to create.
      * @return in the configuration of the storage.
      **/
-    ErrorCode create( const std::string& path, const FileStorageConfig& config, const bool& overwrite = false ) noexcept;
+    ErrorCode create( const BufferPoolConfig& bpConfig, const std::string& path, const FileStorageConfig& fsConfig, const bool& overwrite = false ) noexcept;
 
     /**
      * Closes the Buffer Pool.
@@ -198,7 +198,7 @@ class BufferPool {
     /**
      * The file storage where this buffer pool will be persisted.
      **/
-    FileStorage* p_storage;
+    FileStorage m_storage;
 
     /**
      * The Buffer Pool configuration data.

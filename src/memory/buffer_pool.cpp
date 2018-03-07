@@ -66,6 +66,7 @@ ErrorCode BufferPool::close() noexcept {
 	free(p_pool);
 	m_descriptors.clear();
 	m_allocationTable.clear();
+	m_freePages.clear();
 	m_bufferToPageMap.clear();
 
 	return ErrorCode::E_NO_ERROR;
@@ -81,19 +82,8 @@ ErrorCode BufferPool::alloc( BufferHandler* bufferHandler ) noexcept {
 		return error;
 	}
 
-	// Look if there is an unallocated disk page.
-	bool found = false;
-	for (uint64_t i = 0; i < m_storage.size() && !found; ++i) {
-		if (!m_allocationTable.test(i)) {
-			if (!isProtected(i)) {
-				found = true;
-				pId = i;
-			}
-		}
-	}
-
-	// If there is no more free space in disk, reserve space and get the corresponding pageId_t.
-	if (!found) {
+	// If there is no more free space in disk, reserve space.
+	if (m_freePages.empty()) {
 		error = reservePages(1, &pId);
 		if ( error != ErrorCode::E_NO_ERROR ) {
 			return error;
@@ -101,6 +91,8 @@ ErrorCode BufferPool::alloc( BufferHandler* bufferHandler ) noexcept {
 	}
 
 	// Set page as allocated.
+	pId = m_freePages.front();
+	m_freePages.pop_front();
 	m_allocationTable.set(pId);
 
 	m_bufferToPageMap[pId] = bId;
@@ -157,6 +149,7 @@ ErrorCode BufferPool::release( const pageId_t& pId ) noexcept {
 	
 	// Set page as unallocated.
 	m_allocationTable.set(pId, 0);
+	m_freePages.push_back(pId);
 
 	return ErrorCode::E_NO_ERROR;
 }
@@ -341,16 +334,25 @@ ErrorCode BufferPool::reservePages( const uint32_t& numPages, pageId_t* pageId )
 	ErrorCode error = m_storage.reserve(numPages, pageId);
 	if ( error != ErrorCode::E_NO_ERROR ) {
 		return error;
-	} 
+	}
 
-	// If the first reserved page is protected, an extra page must be reserved.
+	// Add reserved pages to free list.
+	for (uint64_t i = 0; i < numPages; ++i) {
+		m_freePages.push_back((*pageId)+i);
+	}
+
+	// If the first reserved page is protected, it must be removed from the free list and
+	// an extra page must be reserved.
 	if (isProtected(*pageId)) {
+		m_freePages.remove(*pageId);
+
 		pageId_t pIdToReturn = (*pageId) + 1;
 
 		ErrorCode error = m_storage.reserve(1, pageId);
 		if ( error != ErrorCode::E_NO_ERROR ) {
 			return error;
 		}
+		m_freePages.push_back(*pageId);
 
 		*pageId = pIdToReturn;
 	}
@@ -383,6 +385,13 @@ ErrorCode BufferPool::loadAllocationTable() noexcept {
 
     m_allocationTable.resize(bitmapSize);
     from_block_range(v.begin(), v.end(), m_allocationTable);
+
+    // Add the unallocated pages to the free list
+    for (uint64_t i = 0; i < m_allocationTable.size(); ++i) {
+    	if (!m_allocationTable.test(i) && !isProtected(i)) {
+    		m_freePages.push_back(i);
+    	}
+    }
 
     return ErrorCode::E_NO_ERROR;
 }

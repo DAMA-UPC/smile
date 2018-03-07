@@ -5,6 +5,7 @@
 #define _MEMORY_BUFFER_POOL_H_
 
 #include <map>
+#include <list>
 #include "../base/platform.h"
 #include "../storage/file_storage.h"
 #include "types.h"
@@ -219,6 +220,11 @@ class BufferPool {
      * Bitset representing whether a disk page is allocated (1) or not (0).
      */
     boost::dynamic_bitset<> m_allocationTable;
+
+    /**
+     * List of free (unallocated) pages.
+     */
+    std::list<pageId_t> m_freePages;
 
     /**
      * Maps pageId_t with its bufferId_t in case it is currently in the Buffer Pool. 

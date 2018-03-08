@@ -8,6 +8,8 @@ BufferPool::BufferPool() noexcept {
 }
 
 ErrorCode BufferPool::open( const BufferPoolConfig& bpConfig, const std::string& path ) noexcept {
+	std::lock_guard<std::mutex> lock(m_globalLoc);
+
 	if ( bpConfig.m_poolSizeKB % (m_storage.getPageSize()/1024) != 0 ) {
 		return ErrorCode::E_BUFPOOL_POOL_SIZE_NOT_MULTIPLE_OF_PAGE_SIZE;
 	}
@@ -33,6 +35,8 @@ ErrorCode BufferPool::open( const BufferPoolConfig& bpConfig, const std::string&
 }
 
 ErrorCode BufferPool::create( const BufferPoolConfig& bpConfig, const std::string& path, const FileStorageConfig& fsConfig, const bool& overwrite ) noexcept {
+	std::lock_guard<std::mutex> lock(m_globalLoc);
+
 	if ( bpConfig.m_poolSizeKB % fsConfig.m_pageSizeKB != 0 ) {
 		return ErrorCode::E_BUFPOOL_POOL_SIZE_NOT_MULTIPLE_OF_PAGE_SIZE;
 	}
@@ -53,7 +57,16 @@ ErrorCode BufferPool::create( const BufferPoolConfig& bpConfig, const std::strin
 }
 
 ErrorCode BufferPool::close() noexcept {
-	ErrorCode error = checkpoint();
+	std::lock_guard<std::mutex> lock(m_globalLoc);
+
+	// Flush dirty buffers
+	ErrorCode error = flushDirtyBuffers();
+	if ( error != ErrorCode::E_NO_ERROR ) {
+		return error;
+	}
+
+	// Save m_allocationTable state to disk.
+	error = storeAllocationTable();
 	if ( error != ErrorCode::E_NO_ERROR ) {
 		return error;
 	}
@@ -73,6 +86,8 @@ ErrorCode BufferPool::close() noexcept {
 }
 
 ErrorCode BufferPool::alloc( BufferHandler* bufferHandler ) noexcept {
+	std::lock_guard<std::mutex> lock(m_globalLoc);
+
 	bufferId_t bId;
 	pageId_t pId;
 
@@ -112,6 +127,8 @@ ErrorCode BufferPool::alloc( BufferHandler* bufferHandler ) noexcept {
 }
 
 ErrorCode BufferPool::release( const pageId_t& pId ) noexcept {
+	std::lock_guard<std::mutex> lock(m_globalLoc);
+
 	if (pId > m_storage.size()) {
 		return ErrorCode::E_BUFPOOL_PAGE_NOT_ALLOCATED;
 	}
@@ -155,6 +172,8 @@ ErrorCode BufferPool::release( const pageId_t& pId ) noexcept {
 }
 
 ErrorCode BufferPool::pin( const pageId_t& pId, BufferHandler* bufferHandler ) noexcept {
+	std::lock_guard<std::mutex> lock(m_globalLoc);
+
 	if (pId > m_storage.size()) {
 		return ErrorCode::E_BUFPOOL_PAGE_NOT_ALLOCATED;
 	}
@@ -208,6 +227,8 @@ ErrorCode BufferPool::pin( const pageId_t& pId, BufferHandler* bufferHandler ) n
 }
 
 ErrorCode BufferPool::unpin( const pageId_t& pId ) noexcept {
+	std::lock_guard<std::mutex> lock(m_globalLoc);
+
 	if (pId > m_storage.size()) {
 		return ErrorCode::E_BUFPOOL_PAGE_NOT_ALLOCATED;
 	}
@@ -231,20 +252,16 @@ ErrorCode BufferPool::unpin( const pageId_t& pId ) noexcept {
 }
 
 ErrorCode BufferPool::checkpoint() noexcept {
-	// Look for dirty Buffer Pool slots and flush them to disk.
-	for (int bId = 0; bId < m_descriptors.size(); ++bId) {
-		if (m_descriptors[bId].m_inUse && m_descriptors[bId].m_dirty) {
-			ErrorCode error = m_storage.write(getBuffer(bId), m_descriptors[bId].m_pageId);
-			if ( error != ErrorCode::E_NO_ERROR ) {
-				return error;
-			}
+	std::lock_guard<std::mutex> lock(m_globalLoc);
 
-			m_descriptors[bId].m_dirty = 0;
-		}
+	// Flush dirty buffers
+	ErrorCode error = flushDirtyBuffers();
+	if ( error != ErrorCode::E_NO_ERROR ) {
+		return error;
 	}
 
 	// Save m_allocationTable state to disk.
-	ErrorCode error = storeAllocationTable();
+	error = storeAllocationTable();
 	if ( error != ErrorCode::E_NO_ERROR ) {
 		return error;
 	}
@@ -253,6 +270,8 @@ ErrorCode BufferPool::checkpoint() noexcept {
 }
 
 ErrorCode BufferPool::setPageDirty( const pageId_t& pId ) noexcept {
+	std::lock_guard<std::mutex> lock(m_globalLoc);
+
 	std::map<pageId_t, bufferId_t>::iterator it;
 	it = m_bufferToPageMap.find(pId);
 	if (it != m_bufferToPageMap.end()) {
@@ -422,6 +441,22 @@ bool BufferPool::isProtected( const pageId_t& pId ) noexcept {
 	}
 
 	return retval;
+}
+
+ErrorCode BufferPool::flushDirtyBuffers() noexcept {
+	// Look for dirty Buffer Pool slots and flush them to disk.
+	for (int bId = 0; bId < m_descriptors.size(); ++bId) {
+		if (m_descriptors[bId].m_inUse && m_descriptors[bId].m_dirty) {
+			ErrorCode error = m_storage.write(getBuffer(bId), m_descriptors[bId].m_pageId);
+			if ( error != ErrorCode::E_NO_ERROR ) {
+				return error;
+			}
+
+			m_descriptors[bId].m_dirty = 0;
+		}
+	}
+
+	return ErrorCode::E_NO_ERROR;
 }
 
 SMILE_NS_END

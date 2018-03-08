@@ -6,6 +6,7 @@
 
 #include <map>
 #include <list>
+#include <mutex>
 #include "../base/platform.h"
 #include "../storage/file_storage.h"
 #include "types.h"
@@ -196,6 +197,13 @@ class BufferPool {
     bool isProtected( const pageId_t& pId ) noexcept;
 
     /**
+     * Flushes dirty buffers back to disk.
+     * 
+     * @return false if buffers have been correctly flushed, true otherwise
+     */
+    ErrorCode flushDirtyBuffers() noexcept;
+
+    /**
      * The file storage where this buffer pool will be persisted.
      **/
     FileStorage m_storage;
@@ -234,6 +242,11 @@ class BufferPool {
      * Next victim to test during Clock Sweep.
      */
     uint64_t m_nextCSVictim;
+
+    /**
+     * Global lock to isolate concurrent operations by different threads.
+     */
+    std::mutex m_globalLoc;
 };
 
 SMILE_NS_END

@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <memory/buffer_pool.h>
+#include <tasking/tasking.h>
 
 SMILE_NS_BEGIN
 
@@ -177,6 +178,127 @@ TEST(BufferPoolTest, BufferPoolPersistence) {
   // Thus, the retrieved pageId_t should be pagesToAlloc+2.
   ASSERT_TRUE(bufferPoolAux.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler.m_pId == pagesToAlloc+2);
+}
+
+#if 0
+/**
+ * Tests that the buffer pool is thread safe. In order to do so, a 1GB-buffer-pool is created and later
+ * several alloc/release/unpin/checkpoint/setPageDirty operations are used by different threads. Finally,
+ * we check that the state of the Buffer Pool is consistent.
+ */
+TEST(BufferPoolTest, BufferPoolThreadSafe) {
+  // 16384 buffers * 64 KB/page = 1 GB of buffer pool.
+  uint32_t poolSize = 16384;
+  uint32_t allocatedPages = 0;
+  BufferPool bufferPool;
+  ASSERT_TRUE(bufferPool.create(BufferPoolConfig{64*poolSize}, "./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
+  BufferHandler bufferHandler;
+
+  for (uint64_t i = 0; i < poolSize-1; ++i) {
+    ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
+    ++allocatedPages;
+
+    bool doRelease = ((rand()%2) == 0);
+    if (doRelease) {
+      ASSERT_TRUE(bufferPool.release(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
+      --allocatedPages;
+    }
+    else {
+      ASSERT_TRUE(bufferPool.setPageDirty(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
+      ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
+    }
+
+    if ((i%256) == 0) {
+      ASSERT_TRUE(bufferPool.checkpoint() == ErrorCode::E_NO_ERROR); 
+    }
+  }
+
+  ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferHandler.m_bId == allocatedPages);
+}
+#endif
+
+/**
+ * Tests that the buffer pool is thread safe. In order to do so, a 1GB-buffer-pool is created and later
+ * several alloc/release/unpin/checkpoint/setPageDirty operations are used by different threads. Finally,
+ * we check that the state of the Buffer Pool is consistent.
+ */
+TEST(BufferPoolTest, BufferPoolThreadSafe) {
+  // 16384 buffers * 64 KB/page = 1 GB of buffer pool.
+  uint32_t poolSize = 16384;
+  uint32_t allocatedPages = 0;
+  BufferPool bufferPool;
+  ASSERT_TRUE(bufferPool.create(BufferPoolConfig{64*poolSize}, "./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
+  BufferHandler bufferHandler;
+
+  uint64_t numThreads = 1;
+  SyncCounter counter;
+  startThreadPool(numThreads);
+
+  for (uint64_t i = 0; i < poolSize-1; ++i) {
+
+    ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
+    ++allocatedPages;
+
+    struct Params{
+      Params(BufferPool* bp, pageId_t pId) {
+        p_bp = bp;
+        m_pId = pId;
+      }
+
+      BufferPool* p_bp;
+      pageId_t m_pId;
+    };
+
+    Params params(&bufferPool, bufferHandler.m_pId);
+
+    Task release {
+              [] (void * arg){
+                Params* params = reinterpret_cast<Params*>(arg);
+                params->p_bp->release(params->m_pId);
+              },
+              &params
+    };
+
+    Task unpin {
+              [] (void * arg){
+                Params* params = reinterpret_cast<Params*>(arg);
+                params->p_bp->setPageDirty(params->m_pId);
+                params->p_bp->unpin(params->m_pId);
+              },
+              &params
+    };
+
+    Task checkpoint {
+              [] (void * arg){
+                Params* params = reinterpret_cast<Params*>(arg);
+                params->p_bp->checkpoint();
+              },
+              &params
+    };    
+
+    bool doRelease = ((rand()%2) == 0);
+    if (doRelease) {
+      executeTaskAsync(i%numThreads, release, &counter);
+      --allocatedPages;
+    }
+    else {
+      executeTaskAsync(i%numThreads, unpin, &counter);
+    }
+
+    if ((i%256) == 0) {
+      executeTaskAsync(i%numThreads, checkpoint, &counter);
+    }
+  }
+
+  counter.join();
+
+  ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
+
+  std::cout << "allocatedPages = " << allocatedPages << "; bId = " << bufferHandler.m_bId << std::endl;
+  ASSERT_TRUE(bufferHandler.m_bId == allocatedPages);
+
+  stopThreadPool();  
 }
 
 SMILE_NS_END

@@ -285,6 +285,20 @@ ErrorCode BufferPool::setPageDirty( const pageId_t& pId ) noexcept {
 	return ErrorCode::E_NO_ERROR;
 }
 
+ErrorCode BufferPool::getStatistics( BufferPoolStatistics* stats ) noexcept {
+	uint64_t numAllocatedPages = 0;
+	for (uint64_t i = 0; i < m_descriptors.size(); ++i) {
+		if (m_descriptors[i].m_inUse) {
+			++numAllocatedPages;
+		}
+	}
+
+	stats->m_numAllocatedPages = numAllocatedPages;
+	stats->m_numReservedPages = m_storage.size();
+
+	return ErrorCode::E_NO_ERROR;
+}
+
 char* BufferPool::getBuffer( const bufferId_t& bId ) noexcept {
 	char* buffer = p_pool + (m_storage.getPageSize()*bId);
 	return buffer;

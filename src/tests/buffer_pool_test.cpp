@@ -260,7 +260,11 @@ TEST(BufferPoolTest, BufferPoolThreadSafe) {
   }
 
   counter.join();
-  stopThreadPool();  
+  stopThreadPool();
+
+  BufferPoolStatistics stats;
+  ASSERT_TRUE(bufferPool.getStatistics(&stats) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(stats.m_numAllocatedPages == allocatedPages);
 }
 
 SMILE_NS_END

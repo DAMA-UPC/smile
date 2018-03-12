@@ -39,7 +39,7 @@ struct BufferHandler {
     bufferId_t      m_bId;
 };
 
-struct bufferDescriptor {
+struct BufferDescriptor {
     /**
      * Whether a buffer slot is currently being used or not.
      */
@@ -63,6 +63,18 @@ struct bufferDescriptor {
      * pageId_t on disk of the loaded page.
      */
     pageId_t    m_pageId        = 0;
+};
+
+struct BufferPoolStatistics {
+    /**
+     * Number of pages currently in Buffer Pool. 
+     */
+    uint64_t    m_numAllocatedPages;
+
+    /**
+     * Number of pages reserved in the storage.
+     */
+    uint64_t    m_numReservedPages;    
 };
 
 class BufferPool {
@@ -146,6 +158,14 @@ class BufferPool {
      */
     ErrorCode setPageDirty( const pageId_t& pId ) noexcept;
 
+    /**
+     * Gets some stats regarding the Buffer Pool's usage.
+     * 
+     * @param stats The BufferPoolStatistics to fill with stats.
+     * @return false if stats were correctly retrieved, true ottherwise.
+     */
+    ErrorCode getStatistics( BufferPoolStatistics* stats ) noexcept;
+
   private:
 
     /**
@@ -221,7 +241,7 @@ class BufferPool {
     /**
      * Buffer descriptors (metadata).
      */
-    std::vector<bufferDescriptor> m_descriptors;
+    std::vector<BufferDescriptor> m_descriptors;
 
     /**
      * Bitset representing whether a disk page is allocated (1) or not (0).

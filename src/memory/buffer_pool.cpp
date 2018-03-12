@@ -286,6 +286,8 @@ ErrorCode BufferPool::setPageDirty( const pageId_t& pId ) noexcept {
 }
 
 ErrorCode BufferPool::getStatistics( BufferPoolStatistics* stats ) noexcept {
+	std::lock_guard<std::mutex> lock(m_globalLoc);
+
 	uint64_t numAllocatedPages = 0;
 	for (uint64_t i = 0; i < m_descriptors.size(); ++i) {
 		if (m_descriptors[i].m_inUse) {
@@ -295,6 +297,41 @@ ErrorCode BufferPool::getStatistics( BufferPoolStatistics* stats ) noexcept {
 
 	stats->m_numAllocatedPages = numAllocatedPages;
 	stats->m_numReservedPages = m_storage.size();
+
+	return ErrorCode::E_NO_ERROR;
+}
+
+ErrorCode BufferPool::checkConsistency() noexcept {
+	std::lock_guard<std::mutex> lock(m_globalLoc);
+
+	for (uint64_t i = 0; i < m_allocationTable.size(); ++i) {
+		std::list<pageId_t>::iterator itFreePages = std::find(m_freePages.begin(), m_freePages.end(), i);
+		std::map<pageId_t, bufferId_t>::iterator itBuffer = m_bufferToPageMap.find(reinterpret_cast<pageId_t>(i));
+
+		if (m_allocationTable.test(i)) {
+			if (!isProtected(i) && itFreePages != m_freePages.end()) {
+				return ErrorCode::E_BUFPOOL_ALLOCATED_PAGE_IN_FREELIST;
+			}
+			else if (isProtected(i) && itFreePages != m_freePages.end()) {
+				return ErrorCode::E_BUFPOOL_PROTECTED_PAGE_IN_FREELIST;
+			}
+			
+			if (itBuffer != m_bufferToPageMap.end()) {
+				if (!m_descriptors[itBuffer->second].m_inUse || !(m_descriptors[itBuffer->second].m_pageId == i)) {
+					return ErrorCode::E_BUFPOOL_BUFFER_DESCRIPTOR_INCORRECT_DATA;
+				}
+			}
+		}
+		else {
+			if (!isProtected(i) && itFreePages == m_freePages.end()) {
+				return ErrorCode::E_BUFPOOL_FREE_PAGE_NOT_IN_FREELIST;
+			}
+
+			if (itBuffer != m_bufferToPageMap.end()) {
+				return ErrorCode::E_BUFPOOL_FREE_PAGE_MAPPED_TO_BUFFER;
+			}
+		}
+	}
 
 	return ErrorCode::E_NO_ERROR;
 }
@@ -369,9 +406,10 @@ ErrorCode BufferPool::reservePages( const uint32_t& numPages, pageId_t* pageId )
 		return error;
 	}
 
-	// Add reserved pages to free list.
+	// Add reserved pages to free list and increment the Allocation Table size to fit the new pages.
 	for (uint64_t i = 0; i < numPages; ++i) {
 		m_freePages.push_back((*pageId)+i);
+		m_allocationTable.push_back(0);
 	}
 
 	// If the first reserved page is protected, it must be removed from the free list and
@@ -386,16 +424,10 @@ ErrorCode BufferPool::reservePages( const uint32_t& numPages, pageId_t* pageId )
 			return error;
 		}
 		m_freePages.push_back(*pageId);
+		m_allocationTable.push_back(0);
 
 		*pageId = pIdToReturn;
 	}
-
-	// Increment the Allocation Table size to fit the new pages (if needed).
-	uint64_t numTotalPages = m_storage.size();
-	uint64_t bitsPerPage = 8*m_storage.getPageSize();
-	uint64_t numBitmapPages = numTotalPages/bitsPerPage + (numTotalPages%bitsPerPage != 0);
-	uint64_t bitmapSize = numBitmapPages*bitsPerPage;
-	m_allocationTable.resize(bitmapSize);
 
 	return ErrorCode::E_NO_ERROR;
 }

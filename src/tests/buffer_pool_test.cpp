@@ -265,6 +265,8 @@ TEST(BufferPoolTest, BufferPoolThreadSafe) {
   BufferPoolStatistics stats;
   ASSERT_TRUE(bufferPool.getStatistics(&stats) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(stats.m_numAllocatedPages == allocatedPages);
+
+  ASSERT_TRUE(bufferPool.checkConsistency() == ErrorCode::E_NO_ERROR);
 }
 
 SMILE_NS_END

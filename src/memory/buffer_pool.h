@@ -166,6 +166,13 @@ class BufferPool {
      */
     ErrorCode getStatistics( BufferPoolStatistics* stats ) noexcept;
 
+    /**
+     * Checks Buffer Pool's consistency 
+     * 
+     * @return false if Buffer Pool is in a consistent state, true ottherwise.
+     */
+    ErrorCode checkConsistency() noexcept;
+
   private:
 
     /**

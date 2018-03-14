@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include <memory/buffer_pool.h>
-#include <tasking/tasking.h>
+#include <thread>
 
 SMILE_NS_BEGIN
 
@@ -197,16 +197,14 @@ struct Params {
 /**
  * Used by BufferPoolThreadSafe.
  */
-void release(void* args) {
-  Params* params = reinterpret_cast<Params*>(args);
+void release(Params* params) {
   ASSERT_TRUE(params->p_bp->release(params->m_pId) == ErrorCode::E_NO_ERROR);
 }
 
 /**
  * Used by BufferPoolThreadSafe.
  */
-void unpin(void* args) {
-  Params* params = reinterpret_cast<Params*>(args);
+void unpin(Params* params) {
   ASSERT_TRUE(params->p_bp->setPageDirty(params->m_pId) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(params->p_bp->unpin(params->m_pId) == ErrorCode::E_NO_ERROR);
 }
@@ -214,8 +212,7 @@ void unpin(void* args) {
 /**
  * Used by BufferPoolThreadSafe.
  */
-void checkpoint(void* args) {
-  Params* params = reinterpret_cast<Params*>(args);
+void checkpoint(Params* params) {
   ASSERT_TRUE(params->p_bp->checkpoint() == ErrorCode::E_NO_ERROR);
 }
 
@@ -232,10 +229,7 @@ TEST(BufferPoolTest, BufferPoolThreadSafe) {
   ASSERT_TRUE(bufferPool.create(BufferPoolConfig{64*poolSize}, "./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
   BufferHandler bufferHandler;
 
-  uint64_t numThreads = 4;
-  SyncCounter counter;
-  startThreadPool(numThreads);
-
+  std::vector<std::thread> threads;
   std::vector<Params> params(poolSize);
 
   for (uint64_t i = 0; i < poolSize-1; ++i) {
@@ -247,25 +241,26 @@ TEST(BufferPoolTest, BufferPoolThreadSafe) {
 
     bool doRelease = ((rand()%2) == 0);
     if (doRelease) {
-      executeTaskAsync(i%numThreads, {release, &params[i]}, &counter);
+      threads.push_back(std::thread(release, &params[i]));
       --allocatedPages;
     }
     else {
-      executeTaskAsync(i%numThreads, {unpin, &params[i]}, &counter);
+      threads.push_back(std::thread(unpin, &params[i]));
     }
 
     if ((i%256) == 0) {
-      executeTaskAsync(i%numThreads, {checkpoint, &params[i]}, &counter);
+      threads.push_back(std::thread(checkpoint, &params[i]));
     }
   }
 
-  counter.join();
-  stopThreadPool();
+  for (auto& th : threads) {
+    th.join();
+  }
 
   BufferPoolStatistics stats;
   ASSERT_TRUE(bufferPool.getStatistics(&stats) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(stats.m_numAllocatedPages == allocatedPages);
-
+  
   ASSERT_TRUE(bufferPool.checkConsistency() == ErrorCode::E_NO_ERROR);
 }
 

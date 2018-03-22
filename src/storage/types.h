@@ -9,6 +9,8 @@
 
 SMILE_NS_BEGIN
 
+#define INVALID_PAGE_ID 0xffffffffffffffff
+
 using pageId_t = uint64_t;
 
 SMILE_NS_END

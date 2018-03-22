@@ -297,6 +297,7 @@ ErrorCode BufferPool::getStatistics( BufferPoolStatistics* stats ) noexcept {
 
 	stats->m_numAllocatedPages = numAllocatedPages;
 	stats->m_numReservedPages = m_storage.size();
+  stats->m_pageSize = m_storage.getPageSize();
 
 	return ErrorCode::E_NO_ERROR;
 }

@@ -75,6 +75,11 @@ struct BufferPoolStatistics {
      * Number of pages reserved in the storage.
      */
     uint64_t    m_numReservedPages;    
+
+    /**
+     * The size of a page in bytes
+     */
+    uint64_t    m_pageSize;
 };
 
 class BufferPool {

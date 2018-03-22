@@ -11,16 +11,8 @@ if (UNIX)
 endif (UNIX)
 
 add_library(data STATIC 
-  graph.cpp
-  graph_template_defs.inl
-  graph.h
-  immutable_table.h
-  immutable_table.cpp
-  index.h
-  types.h
-  types.cpp
-  types_traits.h
-  types_traits.cpp
+  schema.h
+  schema.cpp
 )
 
 #target_link_libraries(data base ${Boost_LIBRARIES})

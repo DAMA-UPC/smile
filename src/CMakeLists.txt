@@ -10,6 +10,7 @@ add_subdirectory(base)
 add_subdirectory(storage)
 add_subdirectory(memory)
 add_subdirectory(tasking)
+add_subdirectory(data)
 #add_subdirectory(data)
 
 #add_library(smile STATIC)
@@ -20,7 +21,7 @@ add_subdirectory(tasking)
 #    memory
 #)
 
-SET(SMILE_LIBRARIES base storage memory tasking ${Boost_LIBRARIES})
+SET(SMILE_LIBRARIES base storage memory tasking data ${Boost_LIBRARIES})
 SET(SMILE_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/src)
 
 add_subdirectory(tests)

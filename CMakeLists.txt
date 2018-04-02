@@ -73,6 +73,7 @@ FIND_PACKAGE(Boost 1.66 COMPONENTS program_options date_time thread system local
 set(SMILE_LIB_OUTPUT_DIR "${CMAKE_BINARY_DIR}/lib")
 set(SMILE_BIN_OUTPUT_DIR "${CMAKE_BINARY_DIR}/bin")
 set(SMILE_TEST_OUTPUT_DIR "${SMILE_BIN_OUTPUT_DIR}/test")
+set(SMILE_REGTEST_OUTPUT_DIR "${SMILE_BIN_OUTPUT_DIR}/regtest")
 
 
 #

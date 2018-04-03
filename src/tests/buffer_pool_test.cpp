@@ -112,21 +112,12 @@ TEST(BufferPoolTest, BufferPoolErrors) {
   ASSERT_TRUE(bufferPool.create(BufferPoolConfig{256}, "./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
   BufferHandler bufferHandler;
 
-  ASSERT_TRUE(bufferPool.pin(0, &bufferHandler) == ErrorCode::E_BUFPOOL_UNABLE_TO_ACCCESS_PROTECTED_PAGE);
-  ASSERT_TRUE(bufferPool.unpin(0) == ErrorCode::E_BUFPOOL_UNABLE_TO_ACCCESS_PROTECTED_PAGE);
-  ASSERT_TRUE(bufferPool.release(0) == ErrorCode::E_BUFPOOL_UNABLE_TO_ACCCESS_PROTECTED_PAGE);
-  
-  ASSERT_TRUE(bufferPool.pin(1, &bufferHandler) == ErrorCode::E_BUFPOOL_PAGE_NOT_ALLOCATED);
-  ASSERT_TRUE(bufferPool.unpin(1) == ErrorCode::E_BUFPOOL_PAGE_NOT_ALLOCATED);
-  ASSERT_TRUE(bufferPool.release(1) == ErrorCode::E_BUFPOOL_PAGE_NOT_ALLOCATED);
-
   ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler.m_bId == 0);
   pageId_t pId = bufferHandler.m_pId;
   ASSERT_TRUE(bufferPool.unpin(pId) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferPool.release(pId) == ErrorCode::E_NO_ERROR);
 
-  ASSERT_TRUE(bufferPool.unpin(1) == ErrorCode::E_BUFPOOL_PAGE_NOT_PRESENT);
   ASSERT_TRUE(bufferPool.release(1) == ErrorCode::E_NO_ERROR);
 
   ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);

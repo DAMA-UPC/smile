@@ -1,6 +1,7 @@
 
 
 #include "buffer_pool.h"
+#include <assert.h>
 
 SMILE_NS_BEGIN
 
@@ -129,13 +130,8 @@ ErrorCode BufferPool::alloc( BufferHandler* bufferHandler ) noexcept {
 ErrorCode BufferPool::release( const pageId_t& pId ) noexcept {
 	std::lock_guard<std::mutex> lock(m_globalLoc);
 
-	if (pId > m_storage.size()) {
-		return ErrorCode::E_BUFPOOL_PAGE_NOT_ALLOCATED;
-	}
-
-	if (isProtected(pId)) {
-		return ErrorCode::E_BUFPOOL_UNABLE_TO_ACCCESS_PROTECTED_PAGE;	
-	}
+	assert(pId <= m_storage.size() && "Page not allocated");
+	assert(!isProtected(pId) && "Unable to access protected page");
 
 	// Evict the page in case it is in the Buffer Pool
 	std::map<pageId_t, bufferId_t>::iterator it;
@@ -174,13 +170,8 @@ ErrorCode BufferPool::release( const pageId_t& pId ) noexcept {
 ErrorCode BufferPool::pin( const pageId_t& pId, BufferHandler* bufferHandler ) noexcept {
 	std::lock_guard<std::mutex> lock(m_globalLoc);
 
-	if (pId > m_storage.size()) {
-		return ErrorCode::E_BUFPOOL_PAGE_NOT_ALLOCATED;
-	}
-
-	if (isProtected(pId)) {
-		return ErrorCode::E_BUFPOOL_UNABLE_TO_ACCCESS_PROTECTED_PAGE;	
-	}
+	assert(pId <= m_storage.size() && "Page not allocated");
+	assert(!isProtected(pId) && "Unable to access protected page");
 
 	bufferId_t bId;
 
@@ -229,24 +220,15 @@ ErrorCode BufferPool::pin( const pageId_t& pId, BufferHandler* bufferHandler ) n
 ErrorCode BufferPool::unpin( const pageId_t& pId ) noexcept {
 	std::lock_guard<std::mutex> lock(m_globalLoc);
 
-	if (pId > m_storage.size()) {
-		return ErrorCode::E_BUFPOOL_PAGE_NOT_ALLOCATED;
-	}
-
-	if (isProtected(pId)) {
-		return ErrorCode::E_BUFPOOL_UNABLE_TO_ACCCESS_PROTECTED_PAGE;	
-	}
+	assert(pId <= m_storage.size() && "Page not allocated");
+	assert(!isProtected(pId) && "Unable to access protected page");
 
 	// Decrement page's reference count.
 	std::map<pageId_t, bufferId_t>::iterator it;
 	it = m_bufferToPageMap.find(pId);
-	if (it != m_bufferToPageMap.end()) {
-		bufferId_t bId = it->second;
-		--m_descriptors[bId].m_referenceCount;
-	}
-	else {
-		return ErrorCode::E_BUFPOOL_PAGE_NOT_PRESENT;
-	}	
+	assert(it != m_bufferToPageMap.end() && "Page not present");
+	bufferId_t bId = it->second;
+	--m_descriptors[bId].m_referenceCount;	
 
 	return ErrorCode::E_NO_ERROR;
 }
@@ -274,13 +256,9 @@ ErrorCode BufferPool::setPageDirty( const pageId_t& pId ) noexcept {
 
 	std::map<pageId_t, bufferId_t>::iterator it;
 	it = m_bufferToPageMap.find(pId);
-	if (it != m_bufferToPageMap.end()) {
-		bufferId_t bId = it->second;
-		m_descriptors[bId].m_dirty = 1;
-	}
-	else {
-		return ErrorCode::E_BUFPOOL_PAGE_NOT_PRESENT;
-	}
+	assert(it != m_bufferToPageMap.end() && "Page not present");
+	bufferId_t bId = it->second;
+	m_descriptors[bId].m_dirty = 1;
 
 	return ErrorCode::E_NO_ERROR;
 }

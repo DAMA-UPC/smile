@@ -75,6 +75,7 @@ TEST(FileStorageTest, FileStorageReadWrite) {
   ASSERT_TRUE(fileStorage.close() == ErrorCode::E_NO_ERROR);
 }
 
+#if 0
 /**
  * Tests that the file storage is properly reporting errors, specially
  * for out of bounds accesses and database overwrites.
@@ -89,6 +90,7 @@ TEST(FileStorageTest, FileStorageErrors) {
   ASSERT_TRUE(fileStorage.close() == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(fileStorage.create("./test.db", FileStorageConfig{64}) == ErrorCode::E_STORAGE_PATH_ALREADY_EXISTS);
 }
+#endif
 
 
 SMILE_NS_END

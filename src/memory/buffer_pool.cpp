@@ -8,311 +8,310 @@ SMILE_NS_BEGIN
 BufferPool::BufferPool() noexcept {	
 }
 
-ErrorCode BufferPool::open( const BufferPoolConfig& bpConfig, const std::string& path ) noexcept {
+ErrorCode BufferPool::open( const BufferPoolConfig& bpConfig, const std::string& path ) {
 	std::lock_guard<std::mutex> lock(m_globalLoc);
 
-	if ( bpConfig.m_poolSizeKB % (m_storage.getPageSize()/1024) != 0 ) {
-		return ErrorCode::E_BUFPOOL_POOL_SIZE_NOT_MULTIPLE_OF_PAGE_SIZE;
-	}
+	try {
+		if ( bpConfig.m_poolSizeKB % (m_storage.getPageSize()/1024) != 0 ) {
+			throw ErrorCode::E_BUFPOOL_POOL_SIZE_NOT_MULTIPLE_OF_PAGE_SIZE;
+		}
 
-	ErrorCode error = m_storage.open(path);
-	if ( error != ErrorCode::E_NO_ERROR ) {
+		m_storage.open(path);
+		m_config = bpConfig;
+		p_pool = (char*) malloc( m_config.m_poolSizeKB*1024*sizeof(char) );
+		uint32_t pageSizeKB = m_storage.getPageSize() / 1024;
+		uint32_t poolElems = m_config.m_poolSizeKB / pageSizeKB;
+		m_descriptors.resize(poolElems);
+		m_nextCSVictim = 0;
+
+		loadAllocationTable();
+
+		return ErrorCode::E_NO_ERROR;
+	} catch (ErrorCode& error) {
 		return error;
-	}
-
-	m_config = bpConfig;
-	p_pool = (char*) malloc( m_config.m_poolSizeKB*1024*sizeof(char) );
-	uint32_t pageSizeKB = m_storage.getPageSize() / 1024;
-	uint32_t poolElems = m_config.m_poolSizeKB / pageSizeKB;
-	m_descriptors.resize(poolElems);
-	m_nextCSVictim = 0;
-
-	error = loadAllocationTable();
-	if ( error != ErrorCode::E_NO_ERROR ) {
-		return error;
-	}
-
-	return ErrorCode::E_NO_ERROR;
+	} 
 }
 
-ErrorCode BufferPool::create( const BufferPoolConfig& bpConfig, const std::string& path, const FileStorageConfig& fsConfig, const bool& overwrite ) noexcept {
+ErrorCode BufferPool::create( const BufferPoolConfig& bpConfig, const std::string& path, const FileStorageConfig& fsConfig, const bool& overwrite ) {
 	std::lock_guard<std::mutex> lock(m_globalLoc);
 
-	if ( bpConfig.m_poolSizeKB % fsConfig.m_pageSizeKB != 0 ) {
-		return ErrorCode::E_BUFPOOL_POOL_SIZE_NOT_MULTIPLE_OF_PAGE_SIZE;
-	}
+	try {
+		if ( bpConfig.m_poolSizeKB % fsConfig.m_pageSizeKB != 0 ) {
+			throw ErrorCode::E_BUFPOOL_POOL_SIZE_NOT_MULTIPLE_OF_PAGE_SIZE;
+		}
 
-	ErrorCode error = m_storage.create(path, fsConfig, overwrite);
-	if ( error != ErrorCode::E_NO_ERROR ) {
+		m_storage.create(path, fsConfig, overwrite);
+		m_config = bpConfig;
+		p_pool = (char*) malloc( m_config.m_poolSizeKB*1024*sizeof(char) );
+		uint32_t pageSizeKB = m_storage.getPageSize() / 1024;
+		uint32_t poolElems = m_config.m_poolSizeKB / pageSizeKB;
+		m_descriptors.resize(poolElems);
+		m_nextCSVictim = 0;
+
+		return ErrorCode::E_NO_ERROR;
+	} catch (ErrorCode& error) {
 		return error;
-	}
-
-	m_config = bpConfig;
-	p_pool = (char*) malloc( m_config.m_poolSizeKB*1024*sizeof(char) );
-	uint32_t pageSizeKB = m_storage.getPageSize() / 1024;
-	uint32_t poolElems = m_config.m_poolSizeKB / pageSizeKB;
-	m_descriptors.resize(poolElems);
-	m_nextCSVictim = 0;
-
-	return ErrorCode::E_NO_ERROR;
+	} 
 }
 
 ErrorCode BufferPool::close() noexcept {
 	std::lock_guard<std::mutex> lock(m_globalLoc);
 
-	// Flush dirty buffers
-	ErrorCode error = flushDirtyBuffers();
-	if ( error != ErrorCode::E_NO_ERROR ) {
+	try {
+		// Flush dirty buffers
+		flushDirtyBuffers();
+
+		// Save m_allocationTable state to disk.
+		storeAllocationTable();
+
+		m_storage.close();
+		free(p_pool);
+		m_descriptors.clear();
+		m_allocationTable.clear();
+		m_freePages.clear();
+		m_bufferToPageMap.clear();
+
+		return ErrorCode::E_NO_ERROR;
+	} catch (ErrorCode& error) {
 		return error;
-	}
-
-	// Save m_allocationTable state to disk.
-	error = storeAllocationTable();
-	if ( error != ErrorCode::E_NO_ERROR ) {
-		return error;
-	}
-
-	error = m_storage.close();
-	if ( error != ErrorCode::E_NO_ERROR ) {
-		return error;
-	}
-
-	free(p_pool);
-	m_descriptors.clear();
-	m_allocationTable.clear();
-	m_freePages.clear();
-	m_bufferToPageMap.clear();
-
-	return ErrorCode::E_NO_ERROR;
+	} 
 }
 
 ErrorCode BufferPool::alloc( BufferHandler* bufferHandler ) noexcept {
 	std::lock_guard<std::mutex> lock(m_globalLoc);
 
-	bufferId_t bId;
-	pageId_t pId;
+	try {
+		bufferId_t bId;
+		pageId_t pId;
 
-	// Get an empty buffer pool slot for the page.
-	ErrorCode error = getEmptySlot(&bId);
-	if ( error != ErrorCode::E_NO_ERROR ) {
-		return error;
-	}
+		// Get an empty buffer pool slot for the page.
+		getEmptySlot(&bId);
 
-	// If there is no more free space in disk, reserve space.
-	if (m_freePages.empty()) {
-		error = reservePages(1, &pId);
-		if ( error != ErrorCode::E_NO_ERROR ) {
-			return error;
+		// If there is no more free space in disk, reserve space.
+		if (m_freePages.empty()) {
+			reservePages(1, &pId);
 		}
-	}
 
-	// Set page as allocated.
-	pId = m_freePages.front();
-	m_freePages.pop_front();
-	m_allocationTable.set(pId);
+		// Set page as allocated.
+		pId = m_freePages.front();
+		m_freePages.pop_front();
+		m_allocationTable.set(pId);
 
-	m_bufferToPageMap[pId] = bId;
+		m_bufferToPageMap[pId] = bId;
 
-	// Fill the buffer descriptor.
-	m_descriptors[bId].m_referenceCount = 1;
-	m_descriptors[bId].m_usageCount = 1;
-	m_descriptors[bId].m_dirty = 0;
-	m_descriptors[bId].m_pageId = pId;
+		// Fill the buffer descriptor.
+		m_descriptors[bId].m_referenceCount = 1;
+		m_descriptors[bId].m_usageCount = 1;
+		m_descriptors[bId].m_dirty = 0;
+		m_descriptors[bId].m_pageId = pId;
 
-	// Set BufferHandler for the allocated buffer.
-	bufferHandler->m_buffer 	= getBuffer(bId);
-	bufferHandler->m_pId 		= pId;
-	bufferHandler->m_bId 		= bId;
+		// Set BufferHandler for the allocated buffer.
+		bufferHandler->m_buffer 	= getBuffer(bId);
+		bufferHandler->m_pId 		= pId;
+		bufferHandler->m_bId 		= bId;
 
-	return ErrorCode::E_NO_ERROR;
+		return ErrorCode::E_NO_ERROR;
+	} catch (ErrorCode& error) {
+		return error;
+	} 
 }
 
 ErrorCode BufferPool::release( const pageId_t& pId ) noexcept {
 	std::lock_guard<std::mutex> lock(m_globalLoc);
 
-	assert(pId <= m_storage.size() && "Page not allocated");
-	assert(!isProtected(pId) && "Unable to access protected page");
+	try {
+		assert(pId <= m_storage.size() && "Page not allocated");
+		assert(!isProtected(pId) && "Unable to access protected page");
 
-	// Evict the page in case it is in the Buffer Pool
-	std::map<pageId_t, bufferId_t>::iterator it;
-	it = m_bufferToPageMap.find(pId);
-	if (it != m_bufferToPageMap.end()) {
-		bufferId_t bId = it->second;
+		// Evict the page in case it is in the Buffer Pool
+		std::map<pageId_t, bufferId_t>::iterator it;
+		it = m_bufferToPageMap.find(pId);
+		if (it != m_bufferToPageMap.end()) {
+			bufferId_t bId = it->second;
 
-		// Delete page entry from buffer table.
-		m_bufferToPageMap.erase(m_descriptors[bId].m_pageId);
+			// Delete page entry from buffer table.
+			m_bufferToPageMap.erase(m_descriptors[bId].m_pageId);
 
-		// Set buffer as not used
-		m_descriptors[bId].m_inUse = false;
+			// Set buffer as not used
+			m_descriptors[bId].m_inUse = false;
 
-		// If the buffer is dirty we must store it to disk.
-		if( m_descriptors[bId].m_dirty ) {
-			ErrorCode error = m_storage.write(getBuffer(bId), m_descriptors[bId].m_pageId);
-			if ( error != ErrorCode::E_NO_ERROR ) {
-				return error;
+			// If the buffer is dirty we must store it to disk.
+			if( m_descriptors[bId].m_dirty ) {
+				m_storage.write(getBuffer(bId), m_descriptors[bId].m_pageId);
 			}
+			
+			// Update buffer descriptor.
+			m_descriptors[bId].m_referenceCount = 0;
+			m_descriptors[bId].m_usageCount = 0;
+			m_descriptors[bId].m_dirty = 0;
+			m_descriptors[bId].m_pageId = 0;
 		}
 		
-		// Update buffer descriptor.
-		m_descriptors[bId].m_referenceCount = 0;
-		m_descriptors[bId].m_usageCount = 0;
-		m_descriptors[bId].m_dirty = 0;
-		m_descriptors[bId].m_pageId = 0;
-	}
-	
-	// Set page as unallocated.
-	m_allocationTable.set(pId, 0);
-	m_freePages.push_back(pId);
+		// Set page as unallocated.
+		m_allocationTable.set(pId, 0);
+		m_freePages.push_back(pId);
 
-	return ErrorCode::E_NO_ERROR;
+		return ErrorCode::E_NO_ERROR;
+	} catch (ErrorCode& error) {
+		return error;
+	} 
 }
 
 ErrorCode BufferPool::pin( const pageId_t& pId, BufferHandler* bufferHandler ) noexcept {
 	std::lock_guard<std::mutex> lock(m_globalLoc);
 
-	assert(pId <= m_storage.size() && "Page not allocated");
-	assert(!isProtected(pId) && "Unable to access protected page");
+	try {
+		assert(pId <= m_storage.size() && "Page not allocated");
+		assert(!isProtected(pId) && "Unable to access protected page");
 
-	bufferId_t bId;
+		bufferId_t bId;
 
-	// Look for the desired page in the Buffer Pool.
-	std::map<pageId_t, bufferId_t>::iterator it;
-	it = m_bufferToPageMap.find(pId);
+		// Look for the desired page in the Buffer Pool.
+		std::map<pageId_t, bufferId_t>::iterator it;
+		it = m_bufferToPageMap.find(pId);
 
-	// If it is not already there, get an empty slot for the page and load it
-	// from disk. Else take the corresponding slot. Update Buffer Descriptor 
-	// accordingly.
-	if (it == m_bufferToPageMap.end()) {
-		ErrorCode error = getEmptySlot(&bId);
-		if ( error != ErrorCode::E_NO_ERROR ) {
-			return error;
+		// If it is not already there, get an empty slot for the page and load it
+		// from disk. Else take the corresponding slot. Update Buffer Descriptor 
+		// accordingly.
+		if (it == m_bufferToPageMap.end()) {
+			getEmptySlot(&bId);
+			m_storage.read(getBuffer(bId), pId);
+			m_bufferToPageMap[pId] = bId;
+
+			m_descriptors[bId].m_referenceCount = 1;
+			m_descriptors[bId].m_usageCount = 1;
+			m_descriptors[bId].m_dirty = 0;
+		}
+		else {
+			bId = it->second;
+
+			++m_descriptors[bId].m_referenceCount;
+			++m_descriptors[bId].m_usageCount;
 		}
 
-		error = m_storage.read(getBuffer(bId), pId);
-		if ( error != ErrorCode::E_NO_ERROR ) {
-			return error;
-		}
-
-		m_bufferToPageMap[pId] = bId;
-
-		m_descriptors[bId].m_referenceCount = 1;
-		m_descriptors[bId].m_usageCount = 1;
-		m_descriptors[bId].m_dirty = 0;
-	}
-	else {
-		bId = it->second;
-
-		++m_descriptors[bId].m_referenceCount;
-		++m_descriptors[bId].m_usageCount;
-	}
-
-	// Fill the remaining buffer descriptor fields.
-	m_descriptors[bId].m_pageId = pId;
-	
-	// Set BufferHandler for the pinned buffer.
-	bufferHandler->m_buffer 	= getBuffer(bId);
-	bufferHandler->m_pId 	= pId;
-	bufferHandler->m_bId 	= bId;
-	
-	return ErrorCode::E_NO_ERROR;
+		// Fill the remaining buffer descriptor fields.
+		m_descriptors[bId].m_pageId = pId;
+		
+		// Set BufferHandler for the pinned buffer.
+		bufferHandler->m_buffer 	= getBuffer(bId);
+		bufferHandler->m_pId 	= pId;
+		bufferHandler->m_bId 	= bId;
+		
+		return ErrorCode::E_NO_ERROR;
+	} catch (ErrorCode& error) {
+		return error;
+	} 
 }
 
 ErrorCode BufferPool::unpin( const pageId_t& pId ) noexcept {
 	std::lock_guard<std::mutex> lock(m_globalLoc);
 
-	assert(pId <= m_storage.size() && "Page not allocated");
-	assert(!isProtected(pId) && "Unable to access protected page");
+	try {
+		assert(pId <= m_storage.size() && "Page not allocated");
+		assert(!isProtected(pId) && "Unable to access protected page");
 
-	// Decrement page's reference count.
-	std::map<pageId_t, bufferId_t>::iterator it;
-	it = m_bufferToPageMap.find(pId);
-	assert(it != m_bufferToPageMap.end() && "Page not present");
-	bufferId_t bId = it->second;
-	--m_descriptors[bId].m_referenceCount;	
+		// Decrement page's reference count.
+		std::map<pageId_t, bufferId_t>::iterator it;
+		it = m_bufferToPageMap.find(pId);
+		assert(it != m_bufferToPageMap.end() && "Page not present");
+		bufferId_t bId = it->second;
+		--m_descriptors[bId].m_referenceCount;	
 
-	return ErrorCode::E_NO_ERROR;
+		return ErrorCode::E_NO_ERROR;
+	} catch (ErrorCode& error) {
+		return error;
+	} 
 }
 
 ErrorCode BufferPool::checkpoint() noexcept {
 	std::lock_guard<std::mutex> lock(m_globalLoc);
 
-	// Flush dirty buffers
-	ErrorCode error = flushDirtyBuffers();
-	if ( error != ErrorCode::E_NO_ERROR ) {
-		return error;
-	}
+	try {
+		// Flush dirty buffers
+		flushDirtyBuffers();
 
-	// Save m_allocationTable state to disk.
-	error = storeAllocationTable();
-	if ( error != ErrorCode::E_NO_ERROR ) {
-		return error;
-	}
+		// Save m_allocationTable state to disk.
+		storeAllocationTable();
 
-	return ErrorCode::E_NO_ERROR;
+		return ErrorCode::E_NO_ERROR;
+	} catch (ErrorCode& error) {
+		return error;
+	} 
 }
 
 ErrorCode BufferPool::setPageDirty( const pageId_t& pId ) noexcept {
 	std::lock_guard<std::mutex> lock(m_globalLoc);
 
-	std::map<pageId_t, bufferId_t>::iterator it;
-	it = m_bufferToPageMap.find(pId);
-	assert(it != m_bufferToPageMap.end() && "Page not present");
-	bufferId_t bId = it->second;
-	m_descriptors[bId].m_dirty = 1;
+	try {
+		std::map<pageId_t, bufferId_t>::iterator it;
+		it = m_bufferToPageMap.find(pId);
+		assert(it != m_bufferToPageMap.end() && "Page not present");
+		bufferId_t bId = it->second;
+		m_descriptors[bId].m_dirty = 1;
 
-	return ErrorCode::E_NO_ERROR;
+		return ErrorCode::E_NO_ERROR;
+	} catch (ErrorCode& error) {
+		return error;
+	} 
 }
 
 ErrorCode BufferPool::getStatistics( BufferPoolStatistics* stats ) noexcept {
 	std::lock_guard<std::mutex> lock(m_globalLoc);
 
-	uint64_t numAllocatedPages = 0;
-	for (uint64_t i = 0; i < m_descriptors.size(); ++i) {
-		if (m_descriptors[i].m_inUse) {
-			++numAllocatedPages;
+	try {
+		uint64_t numAllocatedPages = 0;
+		for (uint64_t i = 0; i < m_descriptors.size(); ++i) {
+			if (m_descriptors[i].m_inUse) {
+				++numAllocatedPages;
+			}
 		}
-	}
 
-	stats->m_numAllocatedPages = numAllocatedPages;
-	stats->m_numReservedPages = m_storage.size();
-  stats->m_pageSize = m_storage.getPageSize();
+		stats->m_numAllocatedPages = numAllocatedPages;
+		stats->m_numReservedPages = m_storage.size();
+	  	stats->m_pageSize = m_storage.getPageSize();
 
-	return ErrorCode::E_NO_ERROR;
+		return ErrorCode::E_NO_ERROR;
+	} catch (ErrorCode& error) {
+		return error;
+	} 
 }
 
-ErrorCode BufferPool::checkConsistency() noexcept {
+ErrorCode BufferPool::checkConsistency() {
 	std::lock_guard<std::mutex> lock(m_globalLoc);
 
-	for (uint64_t i = 0; i < m_allocationTable.size(); ++i) {
-		std::list<pageId_t>::iterator itFreePages = std::find(m_freePages.begin(), m_freePages.end(), i);
-		std::map<pageId_t, bufferId_t>::iterator itBuffer = m_bufferToPageMap.find(reinterpret_cast<pageId_t>(i));
+	try {
+		for (uint64_t i = 0; i < m_allocationTable.size(); ++i) {
+			std::list<pageId_t>::iterator itFreePages = std::find(m_freePages.begin(), m_freePages.end(), i);
+			std::map<pageId_t, bufferId_t>::iterator itBuffer = m_bufferToPageMap.find(reinterpret_cast<pageId_t>(i));
 
-		if (m_allocationTable.test(i)) {
-			if (!isProtected(i) && itFreePages != m_freePages.end()) {
-				return ErrorCode::E_BUFPOOL_ALLOCATED_PAGE_IN_FREELIST;
+			if (m_allocationTable.test(i)) {
+				if (!isProtected(i) && itFreePages != m_freePages.end()) {
+					throw ErrorCode::E_BUFPOOL_ALLOCATED_PAGE_IN_FREELIST;
+				}
+				else if (isProtected(i) && itFreePages != m_freePages.end()) {
+					throw ErrorCode::E_BUFPOOL_PROTECTED_PAGE_IN_FREELIST;
+				}
+				
+				if (itBuffer != m_bufferToPageMap.end()) {
+					if (!m_descriptors[itBuffer->second].m_inUse || !(m_descriptors[itBuffer->second].m_pageId == i)) {
+						throw ErrorCode::E_BUFPOOL_BUFFER_DESCRIPTOR_INCORRECT_DATA;
+					}
+				}
 			}
-			else if (isProtected(i) && itFreePages != m_freePages.end()) {
-				return ErrorCode::E_BUFPOOL_PROTECTED_PAGE_IN_FREELIST;
-			}
-			
-			if (itBuffer != m_bufferToPageMap.end()) {
-				if (!m_descriptors[itBuffer->second].m_inUse || !(m_descriptors[itBuffer->second].m_pageId == i)) {
-					return ErrorCode::E_BUFPOOL_BUFFER_DESCRIPTOR_INCORRECT_DATA;
+			else {
+				if (!isProtected(i) && itFreePages == m_freePages.end()) {
+					throw ErrorCode::E_BUFPOOL_FREE_PAGE_NOT_IN_FREELIST;
+				}
+
+				if (itBuffer != m_bufferToPageMap.end()) {
+					throw ErrorCode::E_BUFPOOL_FREE_PAGE_MAPPED_TO_BUFFER;
 				}
 			}
 		}
-		else {
-			if (!isProtected(i) && itFreePages == m_freePages.end()) {
-				return ErrorCode::E_BUFPOOL_FREE_PAGE_NOT_IN_FREELIST;
-			}
-
-			if (itBuffer != m_bufferToPageMap.end()) {
-				return ErrorCode::E_BUFPOOL_FREE_PAGE_MAPPED_TO_BUFFER;
-			}
-		}
-	}
-
-	return ErrorCode::E_NO_ERROR;
+		return ErrorCode::E_NO_ERROR;
+	} catch (ErrorCode& error) {
+		return error;
+	} 
 }
 
 char* BufferPool::getBuffer( const bufferId_t& bId ) noexcept {
@@ -320,7 +319,7 @@ char* BufferPool::getBuffer( const bufferId_t& bId ) noexcept {
 	return buffer;
 }
 
-ErrorCode BufferPool::getEmptySlot( bufferId_t* bId ) noexcept {
+ErrorCode BufferPool::getEmptySlot( bufferId_t* bId ) {
 	bool found = false;
 
 	// Look for an empty Buffer Pool slot.
@@ -348,10 +347,7 @@ ErrorCode BufferPool::getEmptySlot( bufferId_t* bId ) noexcept {
 
 				// If the buffer is dirty we must store it to disk.
 				if( m_descriptors[*bId].m_dirty ) {
-					ErrorCode error = m_storage.write(getBuffer(*bId), m_descriptors[*bId].m_pageId);
-					if ( error != ErrorCode::E_NO_ERROR ) {
-						return error;
-					}
+					m_storage.write(getBuffer(*bId), m_descriptors[*bId].m_pageId);
 				}
 
 				// Delete page entry from buffer table.
@@ -372,7 +368,7 @@ ErrorCode BufferPool::getEmptySlot( bufferId_t* bId ) noexcept {
 	}
 
 	if (!found)	{
-		return ErrorCode::E_BUFPOOL_OUT_OF_MEMORY;
+		throw ErrorCode::E_BUFPOOL_OUT_OF_MEMORY;
 	}
 
 	return ErrorCode::E_NO_ERROR;
@@ -380,10 +376,7 @@ ErrorCode BufferPool::getEmptySlot( bufferId_t* bId ) noexcept {
 
 ErrorCode BufferPool::reservePages( const uint32_t& numPages, pageId_t* pageId ) noexcept {
 	// Reserve space in disk.
-	ErrorCode error = m_storage.reserve(numPages, pageId);
-	if ( error != ErrorCode::E_NO_ERROR ) {
-		return error;
-	}
+	m_storage.reserve(numPages, pageId);
 
 	// Add reserved pages to free list and increment the Allocation Table size to fit the new pages.
 	for (uint64_t i = 0; i < numPages; ++i) {
@@ -398,10 +391,7 @@ ErrorCode BufferPool::reservePages( const uint32_t& numPages, pageId_t* pageId )
 
 		pageId_t pIdToReturn = (*pageId) + 1;
 
-		ErrorCode error = m_storage.reserve(1, pageId);
-		if ( error != ErrorCode::E_NO_ERROR ) {
-			return error;
-		}
+		m_storage.reserve(1, pageId);
 		m_freePages.push_back(*pageId);
 		m_allocationTable.push_back(0);
 
@@ -421,10 +411,7 @@ ErrorCode BufferPool::loadAllocationTable() noexcept {
 	std::vector<boost::dynamic_bitset<>::block_type> v(bitmapSize/blockSize);
 
 	for (uint64_t i = 0; i < bitmapSize; i += bitsPerPage) {
-    	ErrorCode error = m_storage.read(reinterpret_cast<char*>(&v[i/blockSize]), i);
-    	if ( error != ErrorCode::E_NO_ERROR ) {
-			return error;
-		}
+    	m_storage.read(reinterpret_cast<char*>(&v[i/blockSize]), i);
     }
 
     m_allocationTable.resize(bitmapSize);
@@ -448,10 +435,7 @@ ErrorCode BufferPool::storeAllocationTable() noexcept {
     uint64_t blockSize = boost::dynamic_bitset<>::bits_per_block;
 
     for (uint64_t i = 0; i < m_allocationTable.size(); i += bitsPerPage) {
-    	ErrorCode error = m_storage.write(reinterpret_cast<char*>(&v[i/blockSize]), i);
-    	if ( error != ErrorCode::E_NO_ERROR ) {
-			return error;
-		}
+    	m_storage.write(reinterpret_cast<char*>(&v[i/blockSize]), i);
     }
 
     return ErrorCode::E_NO_ERROR;
@@ -472,11 +456,7 @@ ErrorCode BufferPool::flushDirtyBuffers() noexcept {
 	// Look for dirty Buffer Pool slots and flush them to disk.
 	for (int bId = 0; bId < m_descriptors.size(); ++bId) {
 		if (m_descriptors[bId].m_inUse && m_descriptors[bId].m_dirty) {
-			ErrorCode error = m_storage.write(getBuffer(bId), m_descriptors[bId].m_pageId);
-			if ( error != ErrorCode::E_NO_ERROR ) {
-				return error;
-			}
-
+			m_storage.write(getBuffer(bId), m_descriptors[bId].m_pageId);
 			m_descriptors[bId].m_dirty = 0;
 		}
 	}

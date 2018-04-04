@@ -99,7 +99,7 @@ class BufferPool {
      * @param in the path to the storage.
      * @return false if the storage was opened correctly.
      **/
-    ErrorCode open( const BufferPoolConfig& bpConfig, const std::string& path ) noexcept;
+    ErrorCode open( const BufferPoolConfig& bpConfig, const std::string& path );
 
     /**
      * Opens the Buffer Pool with a file storage at the given path.
@@ -107,7 +107,7 @@ class BufferPool {
      * @param in the path to the storage to create.
      * @return in the configuration of the storage.
      **/
-    ErrorCode create( const BufferPoolConfig& bpConfig, const std::string& path, const FileStorageConfig& fsConfig, const bool& overwrite = false ) noexcept;
+    ErrorCode create( const BufferPoolConfig& bpConfig, const std::string& path, const FileStorageConfig& fsConfig, const bool& overwrite = false );
 
     /**
      * Closes the Buffer Pool.
@@ -176,7 +176,7 @@ class BufferPool {
      * 
      * @return false if Buffer Pool is in a consistent state, true ottherwise.
      */
-    ErrorCode checkConsistency() noexcept;
+    ErrorCode checkConsistency();
 
   private:
 
@@ -195,7 +195,7 @@ class BufferPool {
      * @param bId bufferId_t of the free pool slot.
      * @return false if all pages are pinned, true otherwise.
      */
-    ErrorCode getEmptySlot( bufferId_t* bId ) noexcept;
+    ErrorCode getEmptySlot( bufferId_t* bId );
 
     /**
      * Reserve a set of pages and manage the increments of the allocation table.

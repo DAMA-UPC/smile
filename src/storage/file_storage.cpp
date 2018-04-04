@@ -20,15 +20,15 @@ FileStorage::~FileStorage() noexcept {
   }
 }
 
-ErrorCode FileStorage::open( const std::string& path ) noexcept {
+ErrorCode FileStorage::open( const std::string& path ) {
   m_dataFile.open( path, m_flags );
   if(!m_dataFile){
-    return ErrorCode::E_STORAGE_INVALID_PATH;
+    throw ErrorCode::E_STORAGE_INVALID_PATH;
   }
 
   m_configFile.open( path+".config", m_flags );
   if(!m_configFile){
-    return ErrorCode::E_STORAGE_INVALID_PATH;
+    throw ErrorCode::E_STORAGE_INVALID_PATH;
   }
 
   // Read FileStorageConfig from the first page of m_configFile
@@ -42,19 +42,19 @@ ErrorCode FileStorage::open( const std::string& path ) noexcept {
   return ErrorCode::E_NO_ERROR;
 }
 
-ErrorCode FileStorage::create( const std::string& path, const FileStorageConfig& config, const bool& overwrite ) noexcept {
+ErrorCode FileStorage::create( const std::string& path, const FileStorageConfig& config, const bool& overwrite ) {
   if(!overwrite && std::ifstream(path)) {
-    return ErrorCode::E_STORAGE_PATH_ALREADY_EXISTS;
+    throw ErrorCode::E_STORAGE_PATH_ALREADY_EXISTS;
   }
 
   m_dataFile.open( path, m_flags | std::ios_base::trunc );
   if(!m_dataFile) {
-    return ErrorCode::E_STORAGE_INVALID_PATH;
+    throw ErrorCode::E_STORAGE_INVALID_PATH;
   }
 
   m_configFile.open( path+".config", m_flags | std::ios_base::trunc );
   if(!m_configFile) {
-    return ErrorCode::E_STORAGE_INVALID_PATH;
+    throw ErrorCode::E_STORAGE_INVALID_PATH;
   }
 
   m_config = config;
@@ -65,7 +65,7 @@ ErrorCode FileStorage::create( const std::string& path, const FileStorageConfig&
   m_configFile.seekp(0,std::ios_base::beg);
   m_configFile.write(m_pageFiller.data(), m_pageFiller.size());
   if(!m_configFile) {
-    return ErrorCode::E_STORAGE_OUT_OF_BOUNDS_WRITE;
+    throw ErrorCode::E_STORAGE_OUT_OF_BOUNDS_WRITE;
   }
 
   // Write FileStorageConfig in the first page of m_configFile
@@ -73,70 +73,70 @@ ErrorCode FileStorage::create( const std::string& path, const FileStorageConfig&
   m_configFile.write(reinterpret_cast<char*>(&m_config), sizeof(m_config));
   m_configFile.flush();
   if(!m_configFile) {
-    return ErrorCode::E_STORAGE_OUT_OF_BOUNDS_WRITE;
+    throw ErrorCode::E_STORAGE_OUT_OF_BOUNDS_WRITE;
   }
   return ErrorCode::E_NO_ERROR;
 }
 
-ErrorCode FileStorage::close() noexcept {
+ErrorCode FileStorage::close() {
   if(m_dataFile) {
     m_dataFile.close();
   }
   else {
-    return ErrorCode::E_STORAGE_NOT_OPEN;
+    throw ErrorCode::E_STORAGE_NOT_OPEN;
   }
 
   if(m_configFile) {
     m_configFile.close();
   }
   else {
-    return ErrorCode::E_STORAGE_NOT_OPEN;
+    throw ErrorCode::E_STORAGE_NOT_OPEN;
   }
 
   return ErrorCode::E_NO_ERROR;
 }
 
-ErrorCode FileStorage::reserve( const uint32_t& numPages, pageId_t* pageId ) noexcept {
+ErrorCode FileStorage::reserve( const uint32_t& numPages, pageId_t* pageId ) {
   m_dataFile.seekp(0,std::ios_base::end);
   if(!m_dataFile) {
-    return ErrorCode::E_STORAGE_CRITICAL_ERROR;
+    throw ErrorCode::E_STORAGE_CRITICAL_ERROR;
   }
   *pageId = bytesToPage(m_dataFile.tellp());
   m_dataFile.seekp(pageToBytes((numPages-1)),std::ios_base::end);
   m_dataFile.write(m_pageFiller.data(), m_pageFiller.size());
   if(!m_dataFile) {
-    return ErrorCode::E_STORAGE_OUT_OF_BOUNDS_WRITE;
+    throw ErrorCode::E_STORAGE_OUT_OF_BOUNDS_WRITE;
   }
   m_size = bytesToPage(m_dataFile.tellp());
-  return ErrorCode::E_NO_ERROR;
+  return ErrorCode::E_NO_ERROR; 
 }
 
-ErrorCode FileStorage::read( char* data, const pageId_t& pageId ) noexcept {
+ErrorCode FileStorage::read( char* data, const pageId_t& pageId ) {
   if(pageId < 0 || pageId >= m_size) {
-    return ErrorCode::E_STORAGE_OUT_OF_BOUNDS_PAGE;
+    throw ErrorCode::E_STORAGE_OUT_OF_BOUNDS_PAGE;
   }
   m_dataFile.seekg(pageToBytes(pageId), std::ios_base::beg);
   if(!m_dataFile) {
-    return ErrorCode::E_STORAGE_OUT_OF_BOUNDS_PAGE;
+    throw ErrorCode::E_STORAGE_OUT_OF_BOUNDS_PAGE;
   }
   m_dataFile.read(data,getPageSize());
   if(!m_dataFile) {
-    return ErrorCode::E_STORAGE_OUT_OF_BOUNDS_READ;
+    throw ErrorCode::E_STORAGE_OUT_OF_BOUNDS_READ;
   }
   return ErrorCode::E_NO_ERROR;
 }
 
-ErrorCode FileStorage::write( const char* data, const pageId_t& pageId ) noexcept {
+ErrorCode FileStorage::write( const char* data, const pageId_t& pageId ) {
   if(pageId < 0 || pageId >= m_size) {
-    return ErrorCode::E_STORAGE_OUT_OF_BOUNDS_PAGE;
+    throw ErrorCode::E_STORAGE_OUT_OF_BOUNDS_PAGE;
   }
   m_dataFile.seekp(pageToBytes(pageId), std::ios_base::beg);
   if(!m_dataFile) {
-    return ErrorCode::E_STORAGE_OUT_OF_BOUNDS_PAGE;
+    throw ErrorCode::E_STORAGE_OUT_OF_BOUNDS_PAGE;
   }
   m_dataFile.write(data,getPageSize());
   if(!m_dataFile) {
-    return ErrorCode::E_STORAGE_OUT_OF_BOUNDS_WRITE;
+    throw ErrorCode::E_STORAGE_OUT_OF_BOUNDS_WRITE;
   }
   return ErrorCode::E_NO_ERROR;
 }

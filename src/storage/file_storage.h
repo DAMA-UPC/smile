@@ -27,20 +27,20 @@ class FileStorage {
      * @param in the path to the storage
      * @return true if the storage was opened correctly
      **/
-    ErrorCode open( const std::string& path ) noexcept;
+    ErrorCode open( const std::string& path );
 
     /**
      * Opens the file storage at the given path
      * @param in the path to the storage to create
      * @return in the configuration of the storage
      **/
-    ErrorCode create( const std::string& path, const FileStorageConfig& config, const bool& overwrite = false ) noexcept;
+    ErrorCode create( const std::string& path, const FileStorageConfig& config, const bool& overwrite = false );
 
     /**
      * Closes the storage
      * @return true if the closing was successful
      **/
-    ErrorCode close() noexcept;
+    ErrorCode close();
 
     /**
      * Reserve a set of pages
@@ -48,7 +48,7 @@ class FileStorage {
      * @param out pageId The first reserved pageId
      * @return false if there was an error. true otherwise
      **/
-    ErrorCode reserve( const uint32_t& numPages, pageId_t* pageId ) noexcept;
+    ErrorCode reserve( const uint32_t& numPages, pageId_t* pageId );
 
     /**
      * Locks a pages into a buffer
@@ -56,7 +56,7 @@ class FileStorage {
      * @param in pageId The page to lock
      * @return false if the lock was not successful. true otherwise
      * */
-    ErrorCode read( char* data, const pageId_t& pageId ) noexcept;
+    ErrorCode read( char* data, const pageId_t& pageId );
 
     /**
      * Unlocks the given page
@@ -64,7 +64,7 @@ class FileStorage {
      * @param in pageId The page to unlock
      * @return false if the unlock was unsuccessful. true otherwise.
      **/
-    ErrorCode write( const char* data, const pageId_t& pageId ) noexcept;
+    ErrorCode write( const char* data, const pageId_t& pageId );
 
     /**
      * Gets the current size of the storage in pages

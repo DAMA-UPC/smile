@@ -17,7 +17,7 @@ function(create_regtest NAME)
     )
 endfunction(create_regtest)
 
-SET(TESTS "performance_regtest")
+SET(TESTS "alloc_regtest" "scan_regtest")
 
 foreach( TEST ${TESTS} )
   create_regtest(${TEST})

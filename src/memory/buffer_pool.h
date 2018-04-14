@@ -69,6 +69,11 @@ struct BufferDescriptor {
      * Lock to isolate I/O operations in a same buffer slot.
      */
     std::unique_ptr<std::mutex> m_ioInProgressLock = nullptr;
+
+    /**
+     * Lock to isolate descriptor's modifications.
+     */
+    std::unique_ptr<std::shared_timed_mutex> m_contentLock = nullptr;
 };
 
 struct BufferPoolStatistics {

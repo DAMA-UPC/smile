@@ -154,9 +154,8 @@ ErrorCode BufferPool::release( const pageId_t& pId ) noexcept {
 
 			// If the buffer is dirty we must store it to disk.
 			if( m_descriptors[bId].m_dirty ) {
-				m_descriptors[bId].m_ioInProgressLock->lock();
+				std::unique_lock<std::mutex> ioInProgressGuard(*m_descriptors[bId].m_ioInProgressLock);
 				m_storage.write(getBuffer(bId), m_descriptors[bId].m_pageId);
-				m_descriptors[bId].m_ioInProgressLock->unlock();
 			}
 			
 			// Update buffer descriptor.
@@ -200,9 +199,8 @@ ErrorCode BufferPool::pin( const pageId_t& pId, BufferHandler* bufferHandler ) n
 
 			std::unique_lock<std::shared_timed_mutex> contentGuard(*m_descriptors[bId].m_contentLock);
 
-			m_descriptors[bId].m_ioInProgressLock->lock();
+			std::unique_lock<std::mutex> ioInProgressGuard(*m_descriptors[bId].m_ioInProgressLock);
 			m_storage.read(getBuffer(bId), pId);
-			m_descriptors[bId].m_ioInProgressLock->unlock();
 
 			m_descriptors[bId].m_referenceCount = 1;
 			m_descriptors[bId].m_usageCount = 1;
@@ -382,9 +380,8 @@ ErrorCode BufferPool::getEmptySlot( bufferId_t* bId ) {
 
 				// If the buffer is dirty we must store it to disk.
 				if( m_descriptors[*bId].m_dirty ) {
-					m_descriptors[*bId].m_ioInProgressLock->lock();
+					std::unique_lock<std::mutex> ioInProgressGuard(*m_descriptors[*bId].m_ioInProgressLock);
 					m_storage.write(getBuffer(*bId), m_descriptors[*bId].m_pageId);
-					m_descriptors[*bId].m_ioInProgressLock->unlock();
 				}
 
 				// Delete page entry from buffer table.
@@ -494,9 +491,8 @@ ErrorCode BufferPool::flushDirtyBuffers() noexcept {
 	for (int bId = 0; bId < m_descriptors.size(); ++bId) {
 		std::unique_lock<std::shared_timed_mutex> contentGuard(*m_descriptors[bId].m_contentLock);
 		if (m_descriptors[bId].m_inUse && m_descriptors[bId].m_dirty) {
-			m_descriptors[bId].m_ioInProgressLock->lock();
+			std::unique_lock<std::mutex> ioInProgressGuard(*m_descriptors[bId].m_ioInProgressLock);
 			m_storage.write(getBuffer(bId), m_descriptors[bId].m_pageId);
-			m_descriptors[bId].m_ioInProgressLock->unlock();
 			m_descriptors[bId].m_dirty = 0;
 		}
 	}

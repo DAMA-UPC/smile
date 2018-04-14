@@ -7,6 +7,7 @@
 #include <map>
 #include <list>
 #include <mutex>
+#include <shared_mutex>
 #include "../base/platform.h"
 #include "../storage/file_storage.h"
 #include "types.h"
@@ -63,6 +64,11 @@ struct BufferDescriptor {
      * pageId_t on disk of the loaded page.
      */
     pageId_t    m_pageId        = 0;
+
+    /**
+     * Lock to isolate I/O operations in a same buffer slot.
+     */
+    std::unique_ptr<std::mutex> m_ioInProgressLock = nullptr;
 };
 
 struct BufferPoolStatistics {
@@ -278,7 +284,7 @@ class BufferPool {
     /**
      * Global lock to isolate concurrent operations by different threads.
      */
-    std::mutex m_globalLoc;
+    mutable std::shared_timed_mutex m_globalLock;
 };
 
 SMILE_NS_END

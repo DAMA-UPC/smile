@@ -6,6 +6,7 @@
 
 #include <map>
 #include <list>
+#include <queue>
 #include <mutex>
 #include <shared_mutex>
 #include "../base/platform.h"
@@ -275,6 +276,11 @@ class BufferPool {
      * List of free (unallocated) pages.
      */
     std::list<pageId_t> m_freePages;
+
+    /**
+     * Queue of free (no page associated to them) buffers.
+     */
+    std::queue<bufferId_t> m_freeBuffers;
 
     /**
      * Maps pageId_t with its bufferId_t in case it is currently in the Buffer Pool. 

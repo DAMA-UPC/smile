@@ -2,6 +2,7 @@
 
 #include "buffer_pool.h"
 #include <assert.h>
+#include <algorithm>
 
 SMILE_NS_BEGIN
 
@@ -25,6 +26,7 @@ ErrorCode BufferPool::open( const BufferPoolConfig& bpConfig, const std::string&
 		for (int i = 0; i < poolElems; ++i) {
 			m_descriptors[i].m_ioInProgressLock = std::make_unique<std::mutex>();
 			m_descriptors[i].m_contentLock = std::make_unique<std::shared_timed_mutex>();
+			m_freeBuffers.push(i);
 		}
 		m_nextCSVictim = 0;
 
@@ -53,6 +55,7 @@ ErrorCode BufferPool::create( const BufferPoolConfig& bpConfig, const std::strin
 		for (int i = 0; i < poolElems; ++i) {
 			m_descriptors[i].m_ioInProgressLock = std::make_unique<std::mutex>();
 			m_descriptors[i].m_contentLock = std::make_unique<std::shared_timed_mutex>();
+			m_freeBuffers.push(i);
 		}
 		m_nextCSVictim = 0;
 
@@ -78,6 +81,7 @@ ErrorCode BufferPool::close() noexcept {
 		m_allocationTable.clear();
 		m_freePages.clear();
 		m_bufferToPageMap.clear();
+		std::queue<bufferId_t>().swap(m_freeBuffers);
 
 		return ErrorCode::E_NO_ERROR;
 	} catch (ErrorCode& error) {
@@ -143,6 +147,7 @@ ErrorCode BufferPool::release( const pageId_t& pId ) noexcept {
 			// Delete page entry from buffer table.
 			std::unique_lock<std::shared_timed_mutex> contentGuard(*m_descriptors[bId].m_contentLock);
 			m_bufferToPageMap.erase(m_descriptors[bId].m_pageId);
+			m_freeBuffers.push(bId);
 			// Set page as unallocated.
 			m_allocationTable.set(pId, 0);
 			m_freePages.push_back(pId);
@@ -353,14 +358,12 @@ ErrorCode BufferPool::getEmptySlot( bufferId_t* bId ) {
 	bool found = false;
 
 	// Look for an empty Buffer Pool slot.
-	for (int i = 0; i < m_descriptors.size() && !found; ++i) {
-		// TODO: Enable contentLock and improve loop.
-		//std::unique_lock<std::shared_timed_mutex> contentGuard(*m_descriptors[i].m_contentLock);
-		if (!m_descriptors[i].m_inUse) {
-			m_descriptors[i].m_inUse = true;
-			*bId = i;
-			found = true;
-		}
+	if (!m_freeBuffers.empty()) {
+		found = true;
+		*bId = m_freeBuffers.front();
+		m_freeBuffers.pop();
+		std::unique_lock<std::shared_timed_mutex> contentGuard(*m_descriptors[*bId].m_contentLock);
+		m_descriptors[*bId].m_inUse = true;
 	}
 
 	bool existUnpinnedPage = false;

@@ -121,19 +121,19 @@ TEST(BufferPoolTest, BufferPoolErrors) {
   ASSERT_TRUE(bufferPool.release(1) == ErrorCode::E_NO_ERROR);
 
   ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
-  ASSERT_TRUE(bufferHandler.m_bId == 0);
-  ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler.m_bId == 1);
   ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler.m_bId == 2);
   ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler.m_bId == 3);
+  ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferHandler.m_bId == 0);
 
   ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_BUFPOOL_OUT_OF_MEMORY);
 
   ASSERT_TRUE(bufferPool.release(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
-  ASSERT_TRUE(bufferHandler.m_bId == 3);
+  ASSERT_TRUE(bufferHandler.m_bId == 0);
 
   ASSERT_TRUE(bufferPool.close() == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferPool.open(BufferPoolConfig{257}, "./test.db") == ErrorCode::E_BUFPOOL_POOL_SIZE_NOT_MULTIPLE_OF_PAGE_SIZE);

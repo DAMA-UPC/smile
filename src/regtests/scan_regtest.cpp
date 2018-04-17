@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <memory/buffer_pool.h>
+#include <tasking/tasking.h>
 #include "System.h"
 
 SMILE_NS_BEGIN
@@ -12,6 +13,8 @@ SMILE_NS_BEGIN
  */
 TEST(PerformanceTest, PerformanceTestScan) {
 	if (std::ifstream("./test.db")) {
+		startThreadPool(4);
+
 		BufferPool bufferPool;
 		ASSERT_TRUE(bufferPool.open(BufferPoolConfig{1024*1024}, "./test.db") == ErrorCode::E_NO_ERROR);
 		BufferHandler bufferHandler;
@@ -30,6 +33,8 @@ TEST(PerformanceTest, PerformanceTestScan) {
 				++page;
 			}
 		});
+
+		stopThreadPool();
 	}
 }
 

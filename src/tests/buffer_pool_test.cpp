@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <memory/buffer_pool.h>
+#include <tasking/tasking.h>
 #include <thread>
 
 SMILE_NS_BEGIN
@@ -52,6 +53,8 @@ TEST(BufferPoolTest, BufferPoolAlloc) {
  * P to bring it back to main memory and check that the data we have written still persists.
  */
 TEST(BufferPoolTest, BufferPoolPinAndWritePage) {
+  startThreadPool(1);
+
   BufferPool bufferPool;
   ASSERT_TRUE(bufferPool.create(BufferPoolConfig{256}, "./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
   BufferHandler bufferHandler;
@@ -102,6 +105,8 @@ TEST(BufferPoolTest, BufferPoolPinAndWritePage) {
   {
     ASSERT_TRUE(dataW[i] == dataR[i]);
   }
+
+  stopThreadPool();
 }
 
 /**

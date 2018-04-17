@@ -17,6 +17,8 @@
 
 SMILE_NS_BEGIN
 
+#define PREFETCH_DEGREE 1
+
 struct BufferPoolConfig {
     /**
      * Size of the Buffer Pool in KB.
@@ -151,7 +153,7 @@ class BufferPool {
      * @param bufferHandler BufferHandler for the pinned page.
      * @return false if the pin was successful, true otherwise.
      */
-    ErrorCode pin( const pageId_t& pId, BufferHandler* bufferHandler ) noexcept;
+    ErrorCode pin( const pageId_t& pId, BufferHandler* bufferHandler, bool enablePrefetch = true ) noexcept;
 
     /**
      * Unpins a page.
@@ -230,7 +232,7 @@ class BufferPool {
      * 
      * @return false if the table is stored without issues, true otherwise.
      */
-    ErrorCode storeAllocationTable() noexcept;
+    ErrorCode storeAllocationTable();
 
     /**
      * Returns whether a page is protected (used for storing DB state) or not.

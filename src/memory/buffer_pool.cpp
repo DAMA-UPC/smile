@@ -1,6 +1,7 @@
 
 
 #include "buffer_pool.h"
+#include "../tasking/tasking.h"
 #include <assert.h>
 #include <algorithm>
 
@@ -181,7 +182,7 @@ ErrorCode BufferPool::release( const pageId_t& pId ) noexcept {
 	} 
 }
 
-ErrorCode BufferPool::pin( const pageId_t& pId, BufferHandler* bufferHandler ) noexcept {
+ErrorCode BufferPool::pin( const pageId_t& pId, BufferHandler* bufferHandler, bool enablePrefetch ) noexcept {
 	std::unique_lock<std::shared_timed_mutex> globalGuard(m_globalLock);
 
 	try {
@@ -203,12 +204,11 @@ ErrorCode BufferPool::pin( const pageId_t& pId, BufferHandler* bufferHandler ) n
 			globalGuard.unlock();
 
 			std::unique_lock<std::shared_timed_mutex> contentGuard(*m_descriptors[bId].m_contentLock);
-
 			std::unique_lock<std::mutex> ioInProgressGuard(*m_descriptors[bId].m_ioInProgressLock);
 			m_storage.read(getBuffer(bId), pId);
 
-			m_descriptors[bId].m_referenceCount = 1;
-			m_descriptors[bId].m_usageCount = 1;
+			if (enablePrefetch) m_descriptors[bId].m_referenceCount = 1;
+			if (enablePrefetch) m_descriptors[bId].m_usageCount = 1;
 			m_descriptors[bId].m_dirty = 0;
 			m_descriptors[bId].m_pageId = pId;
 		}
@@ -218,15 +218,38 @@ ErrorCode BufferPool::pin( const pageId_t& pId, BufferHandler* bufferHandler ) n
 			bId = it->second;
 			std::unique_lock<std::shared_timed_mutex> contentGuard(*m_descriptors[bId].m_contentLock);
 
-			++m_descriptors[bId].m_referenceCount;
-			++m_descriptors[bId].m_usageCount;
+			if (enablePrefetch) ++m_descriptors[bId].m_referenceCount;
+			if (enablePrefetch) ++m_descriptors[bId].m_usageCount;
 			m_descriptors[bId].m_pageId = pId;
 		}		
-		
-		// Set BufferHandler for the pinned buffer.
-		bufferHandler->m_buffer 	= getBuffer(bId);
-		bufferHandler->m_pId 	= pId;
-		bufferHandler->m_bId 	= bId;
+
+		if (enablePrefetch) {
+			// Set BufferHandler for the pinned buffer.
+			bufferHandler->m_buffer 	= getBuffer(bId);
+			bufferHandler->m_pId 	= pId;
+			bufferHandler->m_bId 	= bId;
+
+			struct Params{
+				BufferPool*	m_bp;
+				pageId_t 	m_pId;
+			};
+			Params* params = new Params[PREFETCH_DEGREE];
+
+			for (uint32_t i = 0; i < PREFETCH_DEGREE; ++i) {
+				if ( pId+i+1 < m_storage.size() ) {
+					params[i].m_bp = this;
+					params[i].m_pId = pId+i+1;
+					Task prefetchPage {
+						[] (void * args){
+							Params* params = reinterpret_cast<Params*>(args);
+							params->m_bp->pin(params->m_pId, nullptr, false);
+						}, 
+						&params[i]
+		    		};
+					executeTaskAsync(i, prefetchPage, nullptr);
+				}
+			}
+		}
 		
 		return ErrorCode::E_NO_ERROR;
 	} catch (ErrorCode& error) {
@@ -464,7 +487,7 @@ ErrorCode BufferPool::loadAllocationTable() noexcept {
     return ErrorCode::E_NO_ERROR;
 }
 
-ErrorCode BufferPool::storeAllocationTable() noexcept {
+ErrorCode BufferPool::storeAllocationTable() {
     std::vector<boost::dynamic_bitset<>::block_type> v(m_allocationTable.num_blocks());
     to_block_range(m_allocationTable, v.begin());
 

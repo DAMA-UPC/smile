@@ -477,6 +477,9 @@ ErrorCode BufferPool::loadAllocationTable() noexcept {
     m_allocationTable.resize(bitmapSize);
     from_block_range(v.begin(), v.end(), m_allocationTable);
 
+    // If we do not resize to storage size we can potentially keep unallocated pages status.
+    m_allocationTable.resize(m_storage.size());
+
     // Add the unallocated pages to the free list
     for (uint64_t i = 0; i < m_allocationTable.size(); ++i) {
     	if (!m_allocationTable.test(i) && !isProtected(i)) {

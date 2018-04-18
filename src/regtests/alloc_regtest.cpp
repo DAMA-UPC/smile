@@ -22,6 +22,8 @@ TEST(PerformanceTest, PerformanceTestScan) {
 			ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
 		}
 	});
+
+	ASSERT_TRUE(bufferPool.close() == ErrorCode::E_NO_ERROR);
 }
 
 SMILE_NS_END

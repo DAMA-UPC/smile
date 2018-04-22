@@ -52,9 +52,9 @@ TEST(SchemaTest, SchemaPersistence) {
   } 
   ASSERT_TRUE(schema.persistSchema() == ErrorCode::E_NO_ERROR);
 
-  ASSERT_TRUE(bufferPool.close() == ErrorCode::E_NO_ERROR);
-
   stopThreadPool();
+
+  ASSERT_TRUE(bufferPool.close() == ErrorCode::E_NO_ERROR);
 }
 
 SMILE_NS_END

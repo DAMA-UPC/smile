@@ -20,6 +20,7 @@ TEST(PerformanceTest, PerformanceTestScan) {
 		BufferHandler bufferHandler;
 
 		uint64_t page = 0;
+		std::vector<uint64_t> dummy(PAGE_SIZE_KB*1024*8/64);
 
 		// Scan operation
 		System::profile("scan", [&]() {
@@ -27,8 +28,7 @@ TEST(PerformanceTest, PerformanceTestScan) {
 				if ( page%(PAGE_SIZE_KB*1024*8) == 0 ) ++page;
 				ASSERT_TRUE(bufferPool.pin(page, &bufferHandler) == ErrorCode::E_NO_ERROR);
 				ASSERT_TRUE(bufferPool.setPageDirty(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
-				uint64_t dataToWrite = i;
-				memcpy(bufferHandler.m_buffer, &dataToWrite, sizeof(uint64_t));
+				memcpy(bufferHandler.m_buffer, &dummy[0], PAGE_SIZE_KB*1024);
 				ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
 				++page;
 			}

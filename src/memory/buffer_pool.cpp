@@ -236,6 +236,7 @@ ErrorCode BufferPool::pin( const pageId_t& pId, BufferHandler* bufferHandler, bo
 						[] (void * args){
 							Params* params = reinterpret_cast<Params*>(args);
 							params->m_bp->pin(params->m_pId, nullptr, false);
+							delete params;
 						}, 
 						&params[i]
 		    		};

@@ -2,7 +2,6 @@
 #include <memory/buffer_pool.h>
 #include <tasking/tasking.h>
 #include "System.h"
-#include <iostream>
 
 SMILE_NS_BEGIN
 

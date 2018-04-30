@@ -1,6 +1,5 @@
 #include <gtest/gtest.h>
 #include <memory/buffer_pool.h>
-#include "System.h"
 
 SMILE_NS_BEGIN
 
@@ -16,21 +15,19 @@ TEST(PerformanceTest, PerformanceTestScan) {
 	BufferHandler bufferHandler;
 
 	// Allocate 4GB in disk before proceed scanning.
-	System::profile("alloc", [&]() {
-		for (uint64_t i = 0; i < DATA_KB; i += PAGE_SIZE_KB) {
-			ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
-			ASSERT_TRUE(bufferPool.setPageDirty(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
+	for (uint64_t i = 0; i < DATA_KB; i += PAGE_SIZE_KB) {
+		ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
+		ASSERT_TRUE(bufferPool.setPageDirty(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
 
-			uint8_t* buffer = reinterpret_cast<uint8_t*>(bufferHandler.m_buffer);
-			for (uint64_t byte = 0; byte < PAGE_SIZE_KB*1024; ++byte) {
-				uint8_t random = rand()%256;
-				*buffer = random;
-				++buffer;
-			}
-
-			ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
+		uint8_t* buffer = reinterpret_cast<uint8_t*>(bufferHandler.m_buffer);
+		for (uint64_t byte = 0; byte < PAGE_SIZE_KB*1024; ++byte) {
+			uint8_t random = rand()%256;
+			*buffer = random;
+			++buffer;
 		}
-	});
+
+		ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
+	}
 
 	ASSERT_TRUE(bufferPool.close() == ErrorCode::E_NO_ERROR);
 }

@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 #include <memory/buffer_pool.h>
 #include <tasking/tasking.h>
-#include "System.h"
 
 SMILE_NS_BEGIN
 
@@ -11,7 +10,7 @@ SMILE_NS_BEGIN
 /**
  * Tests a Group By operation of 4GB over a 1GB-size Buffer Pool for benchmarking purposes.
  */
-TEST(PerformanceTest, PerformanceTestScan) {
+TEST(PerformanceTest, PerformanceTestGroupBy) {
 	if (std::ifstream("./test.db")) {
 		startThreadPool(4);
 
@@ -21,34 +20,32 @@ TEST(PerformanceTest, PerformanceTestScan) {
 
 		uint64_t page = 0;
 
-		// Scan operation
-		System::profile("groupby", [&]() {
-			for (uint64_t i = 0; i < DATA_KB; i += PAGE_SIZE_KB) {
-				if ( page%(PAGE_SIZE_KB*1024*8) == 0 ) ++page;
-				ASSERT_TRUE(bufferPool.pin(page, &bufferHandler) == ErrorCode::E_NO_ERROR);
-				ASSERT_TRUE(bufferPool.setPageDirty(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
-				
-				std::map<uint8_t, uint16_t> occurrencesMap;
-				uint8_t* buffer = reinterpret_cast<uint8_t*>(bufferHandler.m_buffer);
-				for (uint64_t byte = 0; byte < PAGE_SIZE_KB*1024; ++byte) {
-					uint8_t number = *buffer;
-					std::map<uint8_t, uint16_t>::iterator it;
-					it = occurrencesMap.find(number);
+		// GroupBy operation
+		for (uint64_t i = 0; i < DATA_KB; i += PAGE_SIZE_KB) {
+			if ( page%(PAGE_SIZE_KB*1024*8) == 0 ) ++page;
+			ASSERT_TRUE(bufferPool.pin(page, &bufferHandler) == ErrorCode::E_NO_ERROR);
+			ASSERT_TRUE(bufferPool.setPageDirty(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
+			
+			std::map<uint8_t, uint16_t> occurrencesMap;
+			uint8_t* buffer = reinterpret_cast<uint8_t*>(bufferHandler.m_buffer);
+			for (uint64_t byte = 0; byte < PAGE_SIZE_KB*1024; ++byte) {
+				uint8_t number = *buffer;
+				std::map<uint8_t, uint16_t>::iterator it;
+				it = occurrencesMap.find(number);
 
-					if (it == occurrencesMap.end()) {
-						occurrencesMap.insert(std::pair<uint8_t,uint16_t>(number,1));
-					}
-					else {
-						++it->second;
-					}
-
-					++buffer;
+				if (it == occurrencesMap.end()) {
+					occurrencesMap.insert(std::pair<uint8_t,uint16_t>(number,1));
+				}
+				else {
+					++it->second;
 				}
 
-				ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
-				++page;
+				++buffer;
 			}
-		});
+
+			ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
+			++page;
+		}
 
 		stopThreadPool();
 	}

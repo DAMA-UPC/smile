@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 #include <memory/buffer_pool.h>
 #include <tasking/tasking.h>
-#include "System.h"
 
 SMILE_NS_BEGIN
 
@@ -23,16 +22,14 @@ TEST(PerformanceTest, PerformanceTestScan) {
 		std::vector<uint64_t> dummy(PAGE_SIZE_KB*1024*8/64);
 
 		// Scan operation
-		System::profile("scan", [&]() {
-			for (uint64_t i = 0; i < DATA_KB; i += PAGE_SIZE_KB) {
-				if ( page%(PAGE_SIZE_KB*1024*8) == 0 ) ++page;
-				ASSERT_TRUE(bufferPool.pin(page, &bufferHandler) == ErrorCode::E_NO_ERROR);
-				ASSERT_TRUE(bufferPool.setPageDirty(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
-				memcpy(bufferHandler.m_buffer, &dummy[0], PAGE_SIZE_KB*1024);
-				ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
-				++page;
-			}
-		});
+		for (uint64_t i = 0; i < DATA_KB; i += PAGE_SIZE_KB) {
+			if ( page%(PAGE_SIZE_KB*1024*8) == 0 ) ++page;
+			ASSERT_TRUE(bufferPool.pin(page, &bufferHandler) == ErrorCode::E_NO_ERROR);
+			ASSERT_TRUE(bufferPool.setPageDirty(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
+			memcpy(bufferHandler.m_buffer, &dummy[0], PAGE_SIZE_KB*1024);
+			ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
+			++page;
+		}
 
 		stopThreadPool();
 	}

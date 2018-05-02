@@ -16,51 +16,52 @@ TEST(PerformanceTest, PerformanceTestHashJoin) {
 
 		BufferPool bufferPool;
 		ASSERT_TRUE(bufferPool.open(BufferPoolConfig{1024*1024}, "./test.db") == ErrorCode::E_NO_ERROR);
-		BufferHandler handler1, handler2;
+		BufferHandler bufferHandler;
 
-		uint64_t page = 0;
+		uint64_t i = 0, page = 0;
+		std::map<uint8_t, uint16_t> hashTable;
 
-		// HashJoin operation
-		for (uint64_t i = 0; i+PAGE_SIZE_KB < DATA_KB; i += 2*PAGE_SIZE_KB) {
+		// Build hash table
+		for (; i < DATA_KB/16; i += PAGE_SIZE_KB) {
 			if ( page%(PAGE_SIZE_KB*1024*8) == 0 ) ++page;
-			ASSERT_TRUE(bufferPool.pin(page, &handler1) == ErrorCode::E_NO_ERROR);
+			ASSERT_TRUE(bufferPool.pin(page, &bufferHandler) == ErrorCode::E_NO_ERROR);
 			
-			std::map<uint8_t, uint16_t> hashTable;
-			uint8_t* buffer = reinterpret_cast<uint8_t*>(handler1.m_buffer);
-			for (uint64_t byte = 0; byte+1 < PAGE_SIZE_KB*1024; byte += 2) {
+			uint8_t* buffer = reinterpret_cast<uint8_t*>(bufferHandler.m_buffer);
+			for (uint64_t byte = 0; byte < PAGE_SIZE_KB*1024; byte += 2) {
 				uint8_t key = *buffer;
 				uint8_t value = *(buffer+1);
 				buffer += 2;
 
 				if (key%2 == 0) {
-					std::map<uint8_t, uint16_t>::iterator it;
-					it = hashTable.find(key);
-
+					std::map<uint8_t, uint16_t>::iterator it = hashTable.find(key);
 					if (it == hashTable.end()) {
 						hashTable.insert(std::pair<uint8_t,uint16_t>(key,value));
 					}
 				}
 			}
 
+			ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
 			++page;
-			if ( page%(PAGE_SIZE_KB*1024*8) == 0 ) ++page;
-			ASSERT_TRUE(bufferPool.pin(page, &handler2) == ErrorCode::E_NO_ERROR);
+		}
 
-			buffer = reinterpret_cast<uint8_t*>(handler2.m_buffer);
-			for (uint64_t byte = 0; byte+1 < PAGE_SIZE_KB*1024; byte += 2) {
+		// Probe hash table
+		for (; i < DATA_KB; i += PAGE_SIZE_KB) {
+			if ( page%(PAGE_SIZE_KB*1024*8) == 0 ) ++page;
+			ASSERT_TRUE(bufferPool.pin(page, &bufferHandler) == ErrorCode::E_NO_ERROR);
+
+			uint8_t* buffer = reinterpret_cast<uint8_t*>(bufferHandler.m_buffer);
+			for (uint64_t byte = 0; byte < PAGE_SIZE_KB*1024; byte += 2) {
 				uint8_t key = *buffer;
 				uint8_t value = *(buffer+1);
 				buffer += 2;
 
-				std::map<uint8_t, uint16_t>::iterator it;
-				it = hashTable.find(key);
+				std::map<uint8_t, uint16_t>::iterator it = hashTable.find(key);
 				if (it != hashTable.end()) {
 					it->second += value;
 				}
 			}
 
-			ASSERT_TRUE(bufferPool.unpin(handler1.m_pId) == ErrorCode::E_NO_ERROR);
-			ASSERT_TRUE(bufferPool.unpin(handler2.m_pId) == ErrorCode::E_NO_ERROR);
+			ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
 			++page;
 		}
 

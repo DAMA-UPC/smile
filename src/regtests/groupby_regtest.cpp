@@ -24,7 +24,6 @@ TEST(PerformanceTest, PerformanceTestGroupBy) {
 		for (uint64_t i = 0; i < DATA_KB; i += PAGE_SIZE_KB) {
 			if ( page%(PAGE_SIZE_KB*1024*8) == 0 ) ++page;
 			ASSERT_TRUE(bufferPool.pin(page, &bufferHandler) == ErrorCode::E_NO_ERROR);
-			ASSERT_TRUE(bufferPool.setPageDirty(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
 			
 			std::map<uint8_t, uint16_t> occurrencesMap;
 			uint8_t* buffer = reinterpret_cast<uint8_t*>(bufferHandler.m_buffer);

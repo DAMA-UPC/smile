@@ -72,6 +72,11 @@ struct BufferDescriptor {
      * Lock to isolate descriptor's modifications.
      */
     std::unique_ptr<std::shared_timed_mutex> m_contentLock = nullptr;
+
+    /**
+     * Pointer to data of the cached page.
+     */
+    char*       p_buffer;
 };
 
 struct BufferPoolStatistics {
@@ -190,14 +195,6 @@ class BufferPool {
   private:
 
     /**
-     * Get a pointer to the specified buffer slot.
-     * 
-     * @param bId bufferId_t of the buffer to get a pointer to.
-     * @return Pointer to bId buffer.
-     */
-    char* getBuffer( const bufferId_t& bId ) noexcept;
-
-    /**
      * Returns the bufferId_t of an empty buffer pool slot. In case none is free
      * Clock Sweep algorithm is performed to evict a page.
      * 
@@ -253,11 +250,6 @@ class BufferPool {
      * The Buffer Pool configuration data.
      */
     BufferPoolConfig m_config;
-
-    /**
-     * Buffer pool.
-     */
-    char* p_pool;
 
     /**
      * Buffer descriptors (metadata).

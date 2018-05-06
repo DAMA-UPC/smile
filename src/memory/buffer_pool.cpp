@@ -20,13 +20,13 @@ ErrorCode BufferPool::open( const BufferPoolConfig& bpConfig, const std::string&
 
 		m_storage.open(path);
 		m_config = bpConfig;
-		p_pool = (char*) malloc( m_config.m_poolSizeKB*1024*sizeof(char) );
 		uint32_t pageSizeKB = m_storage.getPageSize() / 1024;
 		uint32_t poolElems = m_config.m_poolSizeKB / pageSizeKB;
 		m_descriptors.resize(poolElems);
 		for (int i = 0; i < poolElems; ++i) {
 			m_descriptors[i].m_contentLock = std::make_unique<std::shared_timed_mutex>();
 			m_freeBuffers.push(i);
+			m_descriptors[i].p_buffer = (char*) malloc( pageSizeKB*1024 );
 		}
 		m_nextCSVictim = 0;
 
@@ -48,13 +48,13 @@ ErrorCode BufferPool::create( const BufferPoolConfig& bpConfig, const std::strin
 
 		m_storage.create(path, fsConfig, overwrite);
 		m_config = bpConfig;
-		p_pool = (char*) malloc( m_config.m_poolSizeKB*1024*sizeof(char) );
 		uint32_t pageSizeKB = m_storage.getPageSize() / 1024;
 		uint32_t poolElems = m_config.m_poolSizeKB / pageSizeKB;
 		m_descriptors.resize(poolElems);
 		for (int i = 0; i < poolElems; ++i) {
 			m_descriptors[i].m_contentLock = std::make_unique<std::shared_timed_mutex>();
 			m_freeBuffers.push(i);
+			m_descriptors[i].p_buffer = (char*) malloc( pageSizeKB*1024 );
 		}
 		m_nextCSVictim = 0;
 
@@ -74,8 +74,11 @@ ErrorCode BufferPool::close() noexcept {
 		// Save m_allocationTable state to disk.
 		storeAllocationTable();
 
+		for (int i = 0; i < m_descriptors.size(); ++i) {
+			free(m_descriptors[i].p_buffer);
+		}
+
 		m_storage.close();
-		free(p_pool);
 		m_descriptors.clear();
 		m_allocationTable.clear();
 		m_freePages.clear();
@@ -120,7 +123,7 @@ ErrorCode BufferPool::alloc( BufferHandler* bufferHandler ) noexcept {
 		m_descriptors[bId].m_pageId = pId;
 
 		// Set BufferHandler for the allocated buffer.
-		bufferHandler->m_buffer 	= getBuffer(bId);
+		bufferHandler->m_buffer 	= m_descriptors[bId].p_buffer;
 		bufferHandler->m_pId 		= pId;
 		bufferHandler->m_bId 		= bId;
 
@@ -152,7 +155,7 @@ ErrorCode BufferPool::release( const pageId_t& pId ) noexcept {
 
 			// If the buffer is dirty we must store it to disk.
 			if( m_descriptors[bId].m_dirty ) {
-				m_storage.write(getBuffer(bId), m_descriptors[bId].m_pageId);
+				m_storage.write(m_descriptors[bId].p_buffer, m_descriptors[bId].m_pageId);
 			}
 
 			globalGuard.unlock();
@@ -196,7 +199,7 @@ ErrorCode BufferPool::pin( const pageId_t& pId, BufferHandler* bufferHandler, bo
 		if (it == m_bufferToPageMap.end()) {
 			getEmptySlot(&bId);
 			m_bufferToPageMap[pId] = bId;
-			m_storage.read(getBuffer(bId), pId);
+			m_storage.read(m_descriptors[bId].p_buffer, pId);
 			globalGuard.unlock();
 
 			std::unique_lock<std::shared_timed_mutex> contentGuard(*m_descriptors[bId].m_contentLock);
@@ -218,7 +221,7 @@ ErrorCode BufferPool::pin( const pageId_t& pId, BufferHandler* bufferHandler, bo
 
 		if (enablePrefetch) {
 			// Set BufferHandler for the pinned buffer.
-			bufferHandler->m_buffer 	= getBuffer(bId);
+			bufferHandler->m_buffer = m_descriptors[bId].p_buffer;
 			bufferHandler->m_pId 	= pId;
 			bufferHandler->m_bId 	= bId;
 
@@ -368,11 +371,6 @@ ErrorCode BufferPool::checkConsistency() {
 	} 
 }
 
-char* BufferPool::getBuffer( const bufferId_t& bId ) noexcept {
-	char* buffer = p_pool + (m_storage.getPageSize()*bId);
-	return buffer;
-}
-
 ErrorCode BufferPool::getEmptySlot( bufferId_t* bId ) {
 	bool found = false;
 
@@ -402,7 +400,7 @@ ErrorCode BufferPool::getEmptySlot( bufferId_t* bId ) {
 
 				// If the buffer is dirty we must store it to disk.
 				if( m_descriptors[*bId].m_dirty ) {
-					m_storage.write(getBuffer(*bId), m_descriptors[*bId].m_pageId);
+					m_storage.write(m_descriptors[*bId].p_buffer, m_descriptors[*bId].m_pageId);
 				}
 
 				// Delete page entry from buffer table.
@@ -517,7 +515,7 @@ ErrorCode BufferPool::flushDirtyBuffers() noexcept {
 	for (int bId = 0; bId < m_descriptors.size(); ++bId) {
 		std::unique_lock<std::shared_timed_mutex> contentGuard(*m_descriptors[bId].m_contentLock);
 		if (m_descriptors[bId].m_inUse && m_descriptors[bId].m_dirty) {
-			m_storage.write(getBuffer(bId), m_descriptors[bId].m_pageId);
+			m_storage.write(m_descriptors[bId].p_buffer, m_descriptors[bId].m_pageId);
 			m_descriptors[bId].m_dirty = 0;
 		}
 	}

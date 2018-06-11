@@ -68,8 +68,8 @@ TEST(PerformanceTest, PerformanceTestLoadGraph) {
 		ASSERT_TRUE(bufferPool.alloc(&metaDataHandler) == ErrorCode::E_NO_ERROR);
 		ASSERT_TRUE(bufferPool.setPageDirty(metaDataHandler.m_pId) == ErrorCode::E_NO_ERROR);
 		uint32_t* buffer = reinterpret_cast<uint32_t*>(metaDataHandler.m_buffer);
-		*buffer = numNodes; ++buffer;
-		*buffer = numEdges; ++buffer;
+		buffer[0] = numNodes;
+		buffer[1] = numEdges;
 
 		// Save firstNbr
 		uint32_t elemsPerPage = (PAGE_SIZE_KB*1024)/sizeof(uint32_t);
@@ -81,7 +81,7 @@ TEST(PerformanceTest, PerformanceTestLoadGraph) {
 			remainingBytes -= PAGE_SIZE_KB*1024;
 			ASSERT_TRUE(bufferPool.unpin(dataHandler.m_pId) == ErrorCode::E_NO_ERROR);
 			if (i == 0) {
-				*buffer = dataHandler.m_pId; ++buffer;
+				buffer[2] = dataHandler.m_pId;
 			}
 		}
 
@@ -94,12 +94,15 @@ TEST(PerformanceTest, PerformanceTestLoadGraph) {
 			remainingBytes -= PAGE_SIZE_KB*1024;
 			ASSERT_TRUE(bufferPool.unpin(dataHandler.m_pId) == ErrorCode::E_NO_ERROR);
 			if (i == 0) {
-				*buffer = dataHandler.m_pId;
+				buffer[3] = dataHandler.m_pId;
 			}
 		}
 
 		ASSERT_TRUE(bufferPool.unpin(metaDataHandler.m_pId) == ErrorCode::E_NO_ERROR);
 		ASSERT_TRUE(bufferPool.close() == ErrorCode::E_NO_ERROR);
+
+		delete firstNbr;
+		delete Nbr;
 	}
 }
 

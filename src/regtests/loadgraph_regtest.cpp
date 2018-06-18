@@ -34,7 +34,7 @@ TEST(PerformanceTest, PerformanceTestLoadGraph) {
 		// Graph data
 		uint32_t* firstNbr;
 		uint32_t* Nbr;
-		uint32_t numNodes = 0, numEdges = 0;
+		uint32_t numNodes = 0, numEdges = 0, firstEdgeNode, lastEdgeNode;
 
 		// Load data from file
 		std::ifstream graphFile;
@@ -49,6 +49,13 @@ TEST(PerformanceTest, PerformanceTestLoadGraph) {
 			for (uint32_t i = 0; i < numEdges; ++i) {
 				graphFile >> orig;
 	  			graphFile >> dest;
+
+	  			if (i == 0) {
+	  				firstEdgeNode = orig;
+	  			}
+	  			else if (i == numEdges-1) {
+	  				lastEdgeNode = orig;
+	  			}
 
 	  			if (orig != lastOrig || i == 0) {
 	  				firstNbr[orig] = i;
@@ -99,6 +106,9 @@ TEST(PerformanceTest, PerformanceTestLoadGraph) {
 			}
 		}
 
+		buffer[4] = firstEdgeNode;
+		buffer[5] = lastEdgeNode;
+
 		ASSERT_TRUE(bufferPool.unpin(metaDataHandler.m_pId) == ErrorCode::E_NO_ERROR);
 		ASSERT_TRUE(bufferPool.close() == ErrorCode::E_NO_ERROR);
 
@@ -133,7 +143,7 @@ TEST(PerformanceTest, PerformanceTestCheckGraph) {
 	if (PATH_TO_GRAPH_FILE != "" || !std::ifstream("./graph.db")) {
 		uint32_t* fileFirstNbr;
 		uint32_t* fileNbr;
-		uint32_t fileNumNodes = 0, fileNumEdges = 0;
+		uint32_t fileNumNodes = 0, fileNumEdges = 0, fileFirstEdgeNode, fileLastEdgeNode;
 
 		// Load graph from file
 		std::ifstream graphFile;
@@ -148,6 +158,13 @@ TEST(PerformanceTest, PerformanceTestCheckGraph) {
 			for (uint32_t i = 0; i < fileNumEdges; ++i) {
 				graphFile >> orig;
 	  			graphFile >> dest;
+
+	  			if (i == 0) {
+	  				fileFirstEdgeNode = orig;
+	  			}
+	  			else if (i == fileNumEdges-1) {
+	  				fileLastEdgeNode = orig;
+	  			}
 
 	  			if (orig != lastOrig || i == 0) {
 	  				fileFirstNbr[orig] = i;
@@ -172,6 +189,8 @@ TEST(PerformanceTest, PerformanceTestCheckGraph) {
 		ASSERT_TRUE(buffer[1] == fileNumEdges);
 		uint32_t firstNbrPage = buffer[2];
 		uint32_t NbrPage = buffer[3];
+		ASSERT_TRUE(buffer[4] == fileFirstEdgeNode);
+		ASSERT_TRUE(buffer[5] == fileLastEdgeNode);
 
 		// Load DB-graph data
 		uint32_t* dbFirstNbr = new uint32_t[fileNumNodes]();

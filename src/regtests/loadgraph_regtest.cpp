@@ -140,7 +140,7 @@ TEST(PerformanceTest, PerformanceTestLoadGraph) {
  * 		
  */
 TEST(PerformanceTest, PerformanceTestCheckGraph) {
-	if (PATH_TO_GRAPH_FILE != "" || !std::ifstream("./graph.db")) {
+	if (PATH_TO_GRAPH_FILE != "" && std::ifstream("./graph.db")) {
 		uint32_t* fileFirstNbr;
 		uint32_t* fileNbr;
 		uint32_t fileNumNodes = 0, fileNumEdges = 0, fileFirstEdgeNode, fileLastEdgeNode;

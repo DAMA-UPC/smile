@@ -20,6 +20,8 @@ TEST(PerformanceTest, PerformanceTestGroupBy) {
 		ASSERT_TRUE(bufferPool.open(BufferPoolConfig{1024*1024,1,NUM_THREADS}, "./test.db") == ErrorCode::E_NO_ERROR);
 		BufferHandler bufferHandler;
 
+		std::array<std::map<uint8_t,uint16_t>,NUM_THREADS> occurrencesMap;
+
 		// GroupBy operation
 		#pragma omp parallel num_threads(NUM_THREADS)
 		{
@@ -31,15 +33,14 @@ TEST(PerformanceTest, PerformanceTestGroupBy) {
 				uint64_t page = 1 + (i/PAGE_SIZE_KB)/(PAGE_SIZE_KB*1024) + (i/PAGE_SIZE_KB);
 				bufferPool.pin(page, &bufferHandler);
 				
-				std::map<uint8_t, uint16_t> occurrencesMap;
 				uint8_t* buffer = reinterpret_cast<uint8_t*>(bufferHandler.m_buffer);
 				for (uint64_t byte = 0; byte < PAGE_SIZE_KB*1024; ++byte) {
 					uint8_t number = *buffer;
 					std::map<uint8_t, uint16_t>::iterator it;
-					it = occurrencesMap.find(number);
+					it = occurrencesMap[threadID].find(number);
 
-					if (it == occurrencesMap.end()) {
-						occurrencesMap.insert(std::pair<uint8_t,uint16_t>(number,1));
+					if (it == occurrencesMap[threadID].end()) {
+						occurrencesMap[threadID].insert(std::pair<uint8_t,uint16_t>(number,1));
 					}
 					else {
 						++it->second;
@@ -50,7 +51,25 @@ TEST(PerformanceTest, PerformanceTestGroupBy) {
 
 				bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR;
 			}
-		}		
+		}	
+
+		#pragma omp barrier
+
+		// Final aggregate
+		for (uint64_t i = 1; i < NUM_THREADS; ++i) {
+			std::map<uint8_t, uint16_t>::iterator it = occurrencesMap[i].begin();
+			while ( it != occurrencesMap[i].end()) {
+				std::map<uint8_t, uint16_t>::iterator it2;
+				it2 = occurrencesMap[0].find(it->first);
+				if (it2 == occurrencesMap[0].end()) {
+					occurrencesMap[0].insert(std::pair<uint8_t,uint16_t>(it->first,it->second));
+				}
+				else {
+					it2->second += it->second;
+				}
+				++it;
+			}
+		}
 
 		stopThreadPool();
 	}

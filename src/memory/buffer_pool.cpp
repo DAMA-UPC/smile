@@ -18,6 +18,10 @@ ErrorCode BufferPool::open( const BufferPoolConfig& bpConfig, const std::string&
 			throw ErrorCode::E_BUFPOOL_POOL_SIZE_NOT_MULTIPLE_OF_PAGE_SIZE;
 		}
 
+		if ( bpConfig.m_numThreads == 0 && bpConfig.m_prefetchingDegree > 0 ) {
+			throw ErrorCode::E_BUFPOOL_NO_THREADS_AVAILABLE_FOR_PREFETCHING;
+		}
+
 		m_storage.open(path);
 		m_config = bpConfig;
 		uint32_t pageSizeKB = m_storage.getPageSize() / 1024;
@@ -29,6 +33,7 @@ ErrorCode BufferPool::open( const BufferPoolConfig& bpConfig, const std::string&
 			m_descriptors[i].p_buffer = (char*) malloc( pageSizeKB*1024 );
 		}
 		m_nextCSVictim = 0;
+		m_currentThread = 0;
 
 		loadAllocationTable();
 
@@ -46,6 +51,10 @@ ErrorCode BufferPool::create( const BufferPoolConfig& bpConfig, const std::strin
 			throw ErrorCode::E_BUFPOOL_POOL_SIZE_NOT_MULTIPLE_OF_PAGE_SIZE;
 		}
 
+		if ( bpConfig.m_numThreads == 0 && bpConfig.m_prefetchingDegree > 0 ) {
+			throw ErrorCode::E_BUFPOOL_NO_THREADS_AVAILABLE_FOR_PREFETCHING;
+		}
+
 		m_storage.create(path, fsConfig, overwrite);
 		m_config = bpConfig;
 		uint32_t pageSizeKB = m_storage.getPageSize() / 1024;
@@ -57,6 +66,7 @@ ErrorCode BufferPool::create( const BufferPoolConfig& bpConfig, const std::strin
 			m_descriptors[i].p_buffer = (char*) malloc( pageSizeKB*1024 );
 		}
 		m_nextCSVictim = 0;
+		m_currentThread = 0;
 
 		return ErrorCode::E_NO_ERROR;
 	} catch (ErrorCode& error) {
@@ -229,9 +239,9 @@ ErrorCode BufferPool::pin( const pageId_t& pId, BufferHandler* bufferHandler, bo
 				BufferPool*	m_bp;
 				pageId_t 	m_pId;
 			};
-			Params* params = new Params[PREFETCH_DEGREE];
+			Params* params = new Params[m_config.m_prefetchingDegree];
 
-			for (uint32_t i = 0; i < PREFETCH_DEGREE; ++i) {
+			for (uint32_t i = 0; i < m_config.m_prefetchingDegree; ++i) {
 				if ( pId+i+1 < m_storage.size() ) {
 					params[i].m_bp = this;
 					params[i].m_pId = pId+i+1;
@@ -243,7 +253,8 @@ ErrorCode BufferPool::pin( const pageId_t& pId, BufferHandler* bufferHandler, bo
 						}, 
 						&params[i]
 		    		};
-					executeTaskAsync(i, prefetchPage, nullptr);
+					executeTaskAsync(m_currentThread, prefetchPage, nullptr);
+					m_currentThread = (m_currentThread + 1)%m_config.m_numThreads;
 				}
 			}
 		}

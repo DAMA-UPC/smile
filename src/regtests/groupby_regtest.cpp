@@ -14,10 +14,10 @@ SMILE_NS_BEGIN
  */
 TEST(PerformanceTest, PerformanceTestGroupBy) {
 	if (std::ifstream("./test.db")) {
-		startThreadPool(1);
+		startThreadPool(NUM_THREADS);
 
 		BufferPool bufferPool;
-		ASSERT_TRUE(bufferPool.open(BufferPoolConfig{1024*1024}, "./test.db") == ErrorCode::E_NO_ERROR);
+		ASSERT_TRUE(bufferPool.open(BufferPoolConfig{1024*1024,1,NUM_THREADS}, "./test.db") == ErrorCode::E_NO_ERROR);
 		BufferHandler bufferHandler;
 
 		// GroupBy operation

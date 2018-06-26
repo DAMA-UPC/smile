@@ -17,13 +17,15 @@
 
 SMILE_NS_BEGIN
 
-#define PREFETCH_DEGREE 1
-
 struct BufferPoolConfig {
     /**
      * Size of the Buffer Pool in KB.
      */
     uint32_t  m_poolSizeKB = 1024*1024;
+
+    uint16_t  m_prefetchingDegree = 1;
+
+    uint16_t  m_numThreads = 1;
 };
 
 struct BufferHandler {
@@ -280,6 +282,11 @@ class BufferPool {
      * Next victim to test during Clock Sweep.
      */
     uint64_t m_nextCSVictim;
+
+    /**
+     * ID of the next thread used for prefetching.
+     */
+    uint16_t m_currentThread;
 
     /**
      * Global lock to isolate concurrent operations by different threads.

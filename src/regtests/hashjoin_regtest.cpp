@@ -75,7 +75,6 @@ TEST(PerformanceTest, PerformanceTestHashJoin) {
 
 			for (uint64_t i = DATA_KB/16+threadID*KBPerThread; (i-threadID*KBPerThread) < KBPerThread; i += PAGE_SIZE_KB) {
 				uint64_t page = 1 + (i/PAGE_SIZE_KB)/(PAGE_SIZE_KB*1024) + (i/PAGE_SIZE_KB) + ((DATA_KB/16)/PAGE_SIZE_KB);
-				std::cout << threadID << " ---> " << page << std::endl;
 				bufferPool.pin(page, &bufferHandler) == ErrorCode::E_NO_ERROR;
 
 				uint8_t* buffer = reinterpret_cast<uint8_t*>(bufferHandler.m_buffer);

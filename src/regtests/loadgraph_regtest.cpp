@@ -225,10 +225,10 @@ TEST(PerformanceTest, PerformanceTestCheckGraph) {
 		stopThreadPool();
 		ASSERT_TRUE(bufferPool.close() == ErrorCode::E_NO_ERROR);
 
-		delete fileFirstNbr;
-		delete fileNbr;
-		delete dbFirstNbr;
-		delete dbNbr;
+		delete [] fileFirstNbr;
+		delete [] fileNbr;
+		delete [] dbFirstNbr;
+		delete [] dbNbr;
 	}
 }
 

@@ -239,22 +239,22 @@ ErrorCode BufferPool::pin( const pageId_t& pId, BufferHandler* bufferHandler, bo
 				BufferPool*	m_bp;
 				pageId_t 	m_pId;
 			};
-			Params* params = new Params[m_config.m_prefetchingDegree];
 
 			for (uint32_t i = 0; i < m_config.m_prefetchingDegree; ++i) {
 				if ( pId+i+1 < m_storage.size() ) {
-					params[i].m_bp = this;
-					params[i].m_pId = pId+i+1;
+          Params* params = new Params{};
+					params->m_bp = this;
+					params->m_pId = pId+i+1;
 					Task prefetchPage {
 						[] (void * args){
 							Params* params = reinterpret_cast<Params*>(args);
 							params->m_bp->pin(params->m_pId, nullptr, false);
 							delete params;
 						}, 
-						&params[i]
+						&params
 		    		};
 					executeTaskAsync(m_currentThread, prefetchPage, nullptr);
-					m_currentThread = (m_currentThread + 1)%m_config.m_numThreads;
+					m_currentThread = (m_currentThread + 1) % m_config.m_numThreads;
 				}
 			}
 		}

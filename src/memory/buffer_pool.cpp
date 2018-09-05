@@ -89,6 +89,7 @@ ErrorCode BufferPool::close() noexcept {
 		}
 
 		m_storage.close();
+
 		m_descriptors.clear();
 		m_allocationTable.clear();
 		m_freePages.clear();
@@ -251,7 +252,7 @@ ErrorCode BufferPool::pin( const pageId_t& pId, BufferHandler* bufferHandler, bo
 							params->m_bp->pin(params->m_pId, nullptr, false);
 							delete params;
 						}, 
-						&params
+						params
 		    		};
 					executeTaskAsync(m_currentThread, prefetchPage, nullptr);
 					m_currentThread = (m_currentThread + 1) % m_config.m_numThreads;

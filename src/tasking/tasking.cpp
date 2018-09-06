@@ -12,6 +12,8 @@
 
 SMILE_NS_BEGIN
 
+static bool                         m_initialized = false;
+
 /**
  * @brief Atomic booleans to control threads running
  */
@@ -130,40 +132,51 @@ static void threadFunction(int threadId) noexcept {
 
 void startThreadPool(std::size_t numThreads) noexcept {
 
-  p_toStartTaskPool     = new TaskPool{numThreads};
-  p_runningTaskPool     = new TaskPool{numThreads};
-  m_threadMainContexts  = new ExecutionContext[numThreads];
   m_numThreads          = numThreads;
-  m_isRunning           = new std::atomic<bool>[m_numThreads];
-  p_threads             = new std::thread*[m_numThreads];
 
-  for(std::size_t i = 0; i < m_numThreads; ++i) {
-    m_isRunning[i].store(true);
-    p_threads[i] = new std::thread(threadFunction, i);
+  if(m_numThreads > 0) {
+    p_toStartTaskPool     = new TaskPool{numThreads};
+    p_runningTaskPool     = new TaskPool{numThreads};
+    m_threadMainContexts  = new ExecutionContext[numThreads];
+    m_isRunning           = new std::atomic<bool>[m_numThreads];
+    p_threads             = new std::thread*[m_numThreads];
+
+    for(std::size_t i = 0; i < m_numThreads; ++i) {
+      m_isRunning[i].store(true);
+      p_threads[i] = new std::thread(threadFunction, i);
+    }
   }
+  m_initialized = true;
+
 }
 
 void stopThreadPool() noexcept {
+  assert(m_initialized && "ThreadPool is not initialized");
 
-  // Telling threads to stop
-  for(std::size_t i = 0; i < m_numThreads; ++i) {
-    m_isRunning[i].store(false);
+  if(m_numThreads > 0) {
+    // Telling threads to stop
+    for(std::size_t i = 0; i < m_numThreads; ++i) {
+      m_isRunning[i].store(false);
+    }
+
+    // Waitning threads to stop
+    for(std::size_t i = 0; i < m_numThreads; ++i) {
+      p_threads[i]->join();
+      delete p_threads[i];
+    }
+
+    delete [] p_threads;
+    delete [] m_isRunning;
+    delete [] m_threadMainContexts;
+    delete p_runningTaskPool;
+    delete p_toStartTaskPool;
   }
-
-  // Waitning threads to stop
-  for(std::size_t i = 0; i < m_numThreads; ++i) {
-    p_threads[i]->join();
-    delete p_threads[i];
-  }
-
-  delete [] p_threads;
-  delete [] m_isRunning;
-  delete [] m_threadMainContexts;
-  delete p_runningTaskPool;
-  delete p_toStartTaskPool;
+  m_initialized = false;
 }
 
 void executeTaskAsync(uint32_t queueId, Task task, SyncCounter* counter ) noexcept {
+  assert(m_initialized && "ThreadPool is not initialized");
+  assert(m_numThreads > 0 && "Number of threads in the threadpool must be > 0");
   TaskContext* taskContext = new TaskContext{task, counter};
   if(taskContext->p_syncCounter != nullptr) {
     taskContext->p_syncCounter->fetch_increment();
@@ -181,6 +194,8 @@ void executeTaskAsync(uint32_t queueId, Task task, SyncCounter* counter ) noexce
 void executeTaskSync(uint32_t queueId, 
                      Task task, 
                      SyncCounter* counter) noexcept {
+  assert(m_initialized && "ThreadPool is not initialized");
+  assert(m_numThreads > 0 && "Number of threads in the threadpool must be > 0");
   executeTaskAsync(queueId, task, counter);
   counter->join();
 }
@@ -190,8 +205,15 @@ uint32_t getCurrentThreadId() noexcept {
 }
 
 void yield() {
+  assert(m_initialized && "ThreadPool is not initialized");
+  assert(m_numThreads > 0 && "Number of threads in the threadpool must be > 0");
   assert(m_currentThreadId != INVALID_THREAD_ID);
   m_threadMainContexts[m_currentThreadId] = m_threadMainContexts[m_currentThreadId].resume();
+}
+
+std::size_t getNumThreads() noexcept {
+  assert(m_initialized && "ThreadPool is not initialized");
+  return m_numThreads;
 }
 
 SMILE_NS_END

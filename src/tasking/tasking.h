@@ -62,6 +62,13 @@ uint32_t getCurrentThreadId() noexcept;
  */
 void yield();
 
+/**
+ * @brief Gets the number of threads available in the buffer pool
+ *
+ * @return Returns the number of available threads
+ */
+std::size_t getNumThreads() noexcept;
+
 SMILE_NS_END
 
 #endif /* ifndef _TASKING_THREAD_POOL_H_ */

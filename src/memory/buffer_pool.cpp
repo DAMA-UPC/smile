@@ -5,6 +5,8 @@
 #include <assert.h>
 #include <algorithm>
 
+#include <iostream>
+
 SMILE_NS_BEGIN
 
 BufferPool::BufferPool() noexcept {	
@@ -18,7 +20,7 @@ ErrorCode BufferPool::open( const BufferPoolConfig& bpConfig, const std::string&
 			throw ErrorCode::E_BUFPOOL_POOL_SIZE_NOT_MULTIPLE_OF_PAGE_SIZE;
 		}
 
-		if ( bpConfig.m_numThreads == 0 && bpConfig.m_prefetchingDegree > 0 ) {
+		if ( getNumThreads() == 0 && bpConfig.m_prefetchingDegree > 0 ) {
 			throw ErrorCode::E_BUFPOOL_NO_THREADS_AVAILABLE_FOR_PREFETCHING;
 		}
 
@@ -51,7 +53,7 @@ ErrorCode BufferPool::create( const BufferPoolConfig& bpConfig, const std::strin
 			throw ErrorCode::E_BUFPOOL_POOL_SIZE_NOT_MULTIPLE_OF_PAGE_SIZE;
 		}
 
-		if ( bpConfig.m_numThreads == 0 && bpConfig.m_prefetchingDegree > 0 ) {
+		if ( getNumThreads() == 0 && bpConfig.m_prefetchingDegree > 0 ) {
 			throw ErrorCode::E_BUFPOOL_NO_THREADS_AVAILABLE_FOR_PREFETCHING;
 		}
 
@@ -230,35 +232,42 @@ ErrorCode BufferPool::pin( const pageId_t& pId, BufferHandler* bufferHandler, bo
 			m_descriptors[bId].m_pageId = pId;
 		}		
 
-		if (enablePrefetch) {
+    if(bufferHandler != nullptr) {
+      bufferHandler->m_buffer = m_descriptors[bId].p_buffer;
+      bufferHandler->m_pId 	= pId;
+      bufferHandler->m_bId 	= bId;
+    }
+
+		if (enablePrefetch && m_config.m_prefetchingDegree > 0) {
 			// Set BufferHandler for the pinned buffer.
-			bufferHandler->m_buffer = m_descriptors[bId].p_buffer;
-			bufferHandler->m_pId 	= pId;
-			bufferHandler->m_bId 	= bId;
 
 			struct Params{
 				BufferPool*	m_bp;
 				pageId_t 	m_pId;
+        int16_t   m_degree;
+        int16_t   m_size;
 			};
 
-			for (uint32_t i = 0; i < m_config.m_prefetchingDegree; ++i) {
-				if ( pId+i+1 < m_storage.size() ) {
-          Params* params = new Params{};
-					params->m_bp = this;
-					params->m_pId = pId+i+1;
-					Task prefetchPage {
-						[] (void * args){
-							Params* params = reinterpret_cast<Params*>(args);
-							params->m_bp->pin(params->m_pId, nullptr, false);
-							delete params;
-						}, 
-						params
-		    		};
-					executeTaskAsync(m_currentThread, prefetchPage, nullptr);
-					m_currentThread = (m_currentThread + 1) % m_config.m_numThreads;
-				}
-			}
-		}
+      Params* params = new Params{};
+      params->m_bp = this;
+      params->m_pId = pId;
+      params->m_degree = m_config.m_prefetchingDegree;
+      params->m_size = m_storage.size();
+      Task prefetchPage {
+        [] (void * args) {
+          Params* params = reinterpret_cast<Params*>(args);
+          for (uint32_t i = 0; i < params->m_degree; ++i) {
+            if ( params->m_pId+i+1 < params->m_size ) {
+              params->m_bp->pin(params->m_pId, nullptr, false);
+            }
+          }
+          delete params;
+        }, 
+        params
+      };
+      executeTaskAsync(m_currentThread, prefetchPage, nullptr);
+      m_currentThread = (m_currentThread + 1) % getNumThreads();
+    }
 		
 		return ErrorCode::E_NO_ERROR;
 	} catch (ErrorCode& error) {

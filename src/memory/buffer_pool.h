@@ -27,12 +27,8 @@ struct BufferPoolConfig {
      * Number of consecutive pages to prefetch. For instance: if set to 3,
      * after pinning page X, pages: X+1, X+2 and X+3 will be prefetched.
      */
-    uint16_t  m_prefetchingDegree = 1;
+    uint16_t  m_prefetchingDegree = 0;
 
-    /**
-     * Number of threads available in the thread pool.
-     */
-    uint16_t  m_numThreads = 1;
 };
 
 struct BufferHandler {

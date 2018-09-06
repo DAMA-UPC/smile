@@ -17,7 +17,10 @@ TEST(PerformanceTest, PerformanceTestHashJoin) {
 		startThreadPool(NUM_THREADS);
 
 		BufferPool bufferPool;
-		ASSERT_TRUE(bufferPool.open(BufferPoolConfig{1024*1024,1,NUM_THREADS}, "./test.db") == ErrorCode::E_NO_ERROR);
+    BufferPoolConfig bpConfig;
+    bpConfig.m_poolSizeKB = 1024*1024;
+    bpConfig.m_prefetchingDegree = 1;
+		ASSERT_TRUE(bufferPool.open(bpConfig, "./test.db") == ErrorCode::E_NO_ERROR);
 		BufferHandler bufferHandler;
 
 		std::array<std::map<uint8_t,uint16_t>,NUM_THREADS> hashTable;
@@ -96,8 +99,8 @@ TEST(PerformanceTest, PerformanceTestHashJoin) {
 
 		#pragma omp barrier
 
-    bufferPool.close();
 		stopThreadPool();
+    bufferPool.close();
 	}
 }
 

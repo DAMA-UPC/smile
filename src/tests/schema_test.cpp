@@ -11,7 +11,9 @@ TEST(SchemaTest, SchemaPersistence) {
   startThreadPool(1);
 
   BufferPool bufferPool;
-  ASSERT_TRUE(bufferPool.create(BufferPoolConfig{256}, "./test.db", FileStorageConfig{4}, true) == ErrorCode::E_NO_ERROR);
+  BufferPoolConfig bpConfig;
+  bpConfig.m_prefetchingDegree = 1;
+  ASSERT_TRUE(bufferPool.create(bpConfig, "./test.db", FileStorageConfig{}, true) == ErrorCode::E_NO_ERROR);
 
   // Allocating first page, which should be 1. 
   BufferHandler handler;
@@ -52,8 +54,8 @@ TEST(SchemaTest, SchemaPersistence) {
   } 
   ASSERT_TRUE(schema.persistSchema() == ErrorCode::E_NO_ERROR);
 
-  stopThreadPool();
 
+  stopThreadPool();
   ASSERT_TRUE(bufferPool.close() == ErrorCode::E_NO_ERROR);
 }
 

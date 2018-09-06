@@ -13,9 +13,12 @@ SMILE_NS_BEGIN
  */
 TEST(PerformanceTest, PerformanceTestBFSGraph) {
 	if (std::ifstream("./graph.db")) {
-	  	startThreadPool(1);
-	  	BufferPool bufferPool;
-		ASSERT_TRUE(bufferPool.open(BufferPoolConfig{1024*1024}, "./graph.db") == ErrorCode::E_NO_ERROR);
+    startThreadPool(1);
+    BufferPool bufferPool;
+    BufferPoolConfig bpConfig;
+    bpConfig.m_poolSizeKB = 1024*1024;
+    bpConfig.m_prefetchingDegree = 1;
+		ASSERT_TRUE(bufferPool.open(bpConfig, "./graph.db") == ErrorCode::E_NO_ERROR);
 		BufferHandler metaDataHandler, handler;
 
 		// Load graph metadata

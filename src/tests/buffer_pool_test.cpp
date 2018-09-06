@@ -13,6 +13,7 @@ SMILE_NS_BEGIN
  * that the Clock Sweep Algorithm is behaving as expected.
  */
 TEST(BufferPoolTest, BufferPoolAlloc) {
+  startThreadPool(1);
   BufferPool bufferPool;
   ASSERT_TRUE(bufferPool.create(BufferPoolConfig{256}, "./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
   BufferHandler bufferHandler1, bufferHandler2, bufferHandler3, bufferHandler4;
@@ -43,6 +44,8 @@ TEST(BufferPoolTest, BufferPoolAlloc) {
 
   ASSERT_TRUE(bufferPool.alloc(&bufferHandler1) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler1.m_bId == 2);
+  stopThreadPool();
+  ASSERT_TRUE(bufferPool.close() == ErrorCode::E_NO_ERROR);
 }
 
 /**
@@ -107,12 +110,14 @@ TEST(BufferPoolTest, BufferPoolPinAndWritePage) {
   }
 
   stopThreadPool();
+  ASSERT_TRUE(bufferPool.close() == ErrorCode::E_NO_ERROR);
 }
 
 /**
  * Tests that the Buffer Pool is properly reporting errors.
  **/
 TEST(BufferPoolTest, BufferPoolErrors) {
+  startThreadPool(1);
   BufferPool bufferPool;
   ASSERT_TRUE(bufferPool.create(BufferPoolConfig{256}, "./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
   BufferHandler bufferHandler;
@@ -143,6 +148,9 @@ TEST(BufferPoolTest, BufferPoolErrors) {
   ASSERT_TRUE(bufferPool.close() == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferPool.open(BufferPoolConfig{257}, "./test.db") == ErrorCode::E_BUFPOOL_POOL_SIZE_NOT_MULTIPLE_OF_PAGE_SIZE);
   ASSERT_TRUE(bufferPool.create(BufferPoolConfig{257}, "./test.db", FileStorageConfig{64}, true) == ErrorCode::E_BUFPOOL_POOL_SIZE_NOT_MULTIPLE_OF_PAGE_SIZE);
+
+  stopThreadPool();
+  ASSERT_TRUE(bufferPool.close() == ErrorCode::E_NO_ERROR);
 }
 
 /**
@@ -150,6 +158,7 @@ TEST(BufferPoolTest, BufferPoolErrors) {
  * information from disk.
  **/
 TEST(BufferPoolTest, BufferPoolPersistence) {
+  startThreadPool(1);
   BufferPool bufferPool;
   ASSERT_TRUE(bufferPool.create(BufferPoolConfig{64*8192}, "./test.db", FileStorageConfig{4}, true) == ErrorCode::E_NO_ERROR);
   BufferHandler bufferHandler;
@@ -174,6 +183,9 @@ TEST(BufferPoolTest, BufferPoolPersistence) {
   // Thus, the retrieved pageId_t should be pagesToAlloc+2.
   ASSERT_TRUE(bufferPoolAux.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
   ASSERT_TRUE(bufferHandler.m_pId == pagesToAlloc+2);
+
+  stopThreadPool();
+  ASSERT_TRUE(bufferPool.close() == ErrorCode::E_NO_ERROR);
 }
 
 /**
@@ -219,6 +231,7 @@ void checkpoint(Params* params) {
  */
 TEST(BufferPoolTest, BufferPoolThreadSafe) {
   // 16384 buffers * 64 KB/page = 1 GB of buffer pool.
+  startThreadPool(1);
   uint32_t poolSize = 16384;
   uint32_t allocatedPages = 0;
   BufferPool bufferPool;
@@ -258,6 +271,9 @@ TEST(BufferPoolTest, BufferPoolThreadSafe) {
   ASSERT_TRUE(stats.m_numAllocatedPages == allocatedPages);
   
   ASSERT_TRUE(bufferPool.checkConsistency() == ErrorCode::E_NO_ERROR);
+
+  stopThreadPool();
+  ASSERT_TRUE(bufferPool.close() == ErrorCode::E_NO_ERROR);
 }
 
 SMILE_NS_END

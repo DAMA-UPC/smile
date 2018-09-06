@@ -7,7 +7,7 @@ SMILE_NS_BEGIN
 
 #define PAGE_SIZE_KB 64
 #define DATA_KB 1*1024*1024
-#define NUM_THREADS 1
+#define NUM_THREADS 2
 
 /**
  * Tests a Group By operation of 4GB over a 1GB-size Buffer Pool for benchmarking purposes.
@@ -17,7 +17,10 @@ TEST(PerformanceTest, PerformanceTestGroupBy) {
 		startThreadPool(NUM_THREADS);
 
 		BufferPool bufferPool;
-		ASSERT_TRUE(bufferPool.open(BufferPoolConfig{1024*1024,1,NUM_THREADS}, "./test.db") == ErrorCode::E_NO_ERROR);
+    BufferPoolConfig bpConfig;
+    bpConfig.m_poolSizeKB = 1024*1024;
+    bpConfig.m_prefetchingDegree = 1;
+		ASSERT_TRUE(bufferPool.open(bpConfig, "./test.db") == ErrorCode::E_NO_ERROR);
 		BufferHandler bufferHandler;
 
 		std::array<std::map<uint8_t,uint16_t>,NUM_THREADS> occurrencesMap;
@@ -71,8 +74,8 @@ TEST(PerformanceTest, PerformanceTestGroupBy) {
 			}
 		}
 
-    bufferPool.close();
 		stopThreadPool();
+    bufferPool.close();
 	}
 }
 

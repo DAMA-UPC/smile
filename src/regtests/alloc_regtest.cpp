@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <memory/buffer_pool.h>
+#include "../tasking/tasking.h"
 
 SMILE_NS_BEGIN
 
@@ -10,8 +11,12 @@ SMILE_NS_BEGIN
  * Tests an alloc operation of 4GB over a 1GB-size Buffer Pool for benchmarking purposes.
  */
 TEST(PerformanceTest, PerformanceTestScan) {
+  startThreadPool(1);
 	BufferPool bufferPool;
-	ASSERT_TRUE(bufferPool.create(BufferPoolConfig{1024*1024}, "./test.db", FileStorageConfig{PAGE_SIZE_KB}, true) == ErrorCode::E_NO_ERROR);
+  BufferPoolConfig bpConfig;
+  bpConfig.m_poolSizeKB = 1024*1024;
+  bpConfig.m_prefetchingDegree = 1;
+	ASSERT_TRUE(bufferPool.create(bpConfig, "./test.db", FileStorageConfig{PAGE_SIZE_KB}, true) == ErrorCode::E_NO_ERROR);
 	BufferHandler bufferHandler;
 
 	// Allocate 4GB in disk before proceed scanning.
@@ -29,6 +34,7 @@ TEST(PerformanceTest, PerformanceTestScan) {
 		ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
 	}
 
+  stopThreadPool();
 	ASSERT_TRUE(bufferPool.close() == ErrorCode::E_NO_ERROR);
 }
 

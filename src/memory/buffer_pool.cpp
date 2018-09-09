@@ -125,16 +125,10 @@ ErrorCode BufferPool::alloc( BufferHandler* bufferHandler ) noexcept {
 		bufferId_t bId;
 		pageId_t pId;
 		// Check if there is a free page in any partition, else reserve space.
-		bool found = false;
-		for (uint8_t p = 0; p < m_config.m_numberOfPartitions && !found; ++p) {
-			if ( !m_partitions[p].m_freePages.empty() ) {
-				found = true;
-				pId = m_partitions[p].m_freePages.front();
-				m_partitions[p].m_freePages.pop_front();
-			}
-		}
+		bool found = getFreePage(&pId);
 		if (!found) {
 			reservePages(1, &pId);
+			getFreePage(&pId);
 		}
 		// Set page as allocated.		
 		m_allocationTable.set(pId);
@@ -486,6 +480,18 @@ ErrorCode BufferPool::getEmptySlot( bufferId_t* bId, uint8_t partition ) {
 	return ErrorCode::E_NO_ERROR;
 }
 
+bool BufferPool::getFreePage(pageId_t* pId) noexcept {
+	bool found = false;
+	for (uint8_t p = 0; p < m_config.m_numberOfPartitions && !found; ++p) {
+		if ( !m_partitions[p].m_freePages.empty() ) {
+			found = true;
+			*pId = m_partitions[p].m_freePages.front();
+			m_partitions[p].m_freePages.pop_front();
+		}
+	}
+	return found;
+}
+
 ErrorCode BufferPool::reservePages( const uint32_t& numPages, pageId_t* pId ) noexcept {
 	// Reserve space in disk.
 	m_storage.reserve(numPages, pId);
@@ -580,6 +586,21 @@ ErrorCode BufferPool::flushDirtyBuffers() noexcept {
 			m_storage.write(m_descriptors[bId].p_buffer, m_descriptors[bId].m_pageId);
 			m_descriptors[bId].m_dirty = 0;
 		}
+	}
+
+	return ErrorCode::E_NO_ERROR;
+}
+
+ErrorCode BufferPool::dumpAllocTable() noexcept {
+	uint64_t bitsPerPage = 8*m_storage.getPageSize();
+	for (uint64_t i = 0; i < m_allocationTable.size(); ++i) {
+		if (i % bitsPerPage == 0) {
+			std::cout << "Showing bits from page " << i/bitsPerPage << " of the allocation table " << std::endl;
+		}
+		if (i % 200 == 0) {
+			std::cout << std::endl;
+		}
+		std::cout << m_allocationTable.test(i);
 	}
 
 	return ErrorCode::E_NO_ERROR;

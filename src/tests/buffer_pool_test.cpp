@@ -15,7 +15,11 @@ SMILE_NS_BEGIN
 TEST(BufferPoolTest, BufferPoolAlloc) {
   startThreadPool(1);
   BufferPool bufferPool;
-  ASSERT_TRUE(bufferPool.create(BufferPoolConfig{256}, "./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
+  BufferPoolConfig bpConfig;
+  bpConfig.m_poolSizeKB = 256;
+  bpConfig.m_prefetchingDegree = 0;
+  bpConfig.m_numberOfPartitions = 1;
+  ASSERT_TRUE(bufferPool.create(bpConfig, "./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
   BufferHandler bufferHandler1, bufferHandler2, bufferHandler3, bufferHandler4;
 
   ASSERT_TRUE(bufferPool.alloc(&bufferHandler1) == ErrorCode::E_NO_ERROR);
@@ -59,7 +63,11 @@ TEST(BufferPoolTest, BufferPoolPinAndWritePage) {
   startThreadPool(1);
 
   BufferPool bufferPool;
-  ASSERT_TRUE(bufferPool.create(BufferPoolConfig{256}, "./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
+  BufferPoolConfig bpConfig;
+  bpConfig.m_poolSizeKB = 256;
+  bpConfig.m_prefetchingDegree = 0;
+  bpConfig.m_numberOfPartitions = 1;
+  ASSERT_TRUE(bufferPool.create(bpConfig, "./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
   BufferHandler bufferHandler;
 
   ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
@@ -119,7 +127,11 @@ TEST(BufferPoolTest, BufferPoolPinAndWritePage) {
 TEST(BufferPoolTest, BufferPoolErrors) {
   startThreadPool(1);
   BufferPool bufferPool;
-  ASSERT_TRUE(bufferPool.create(BufferPoolConfig{256}, "./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
+  BufferPoolConfig bpConfig;
+  bpConfig.m_poolSizeKB = 256;
+  bpConfig.m_prefetchingDegree = 0;
+  bpConfig.m_numberOfPartitions = 1;
+  ASSERT_TRUE(bufferPool.create(bpConfig, "./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
   BufferHandler bufferHandler;
 
   ASSERT_TRUE(bufferPool.alloc(&bufferHandler) == ErrorCode::E_NO_ERROR);
@@ -160,7 +172,11 @@ TEST(BufferPoolTest, BufferPoolErrors) {
 TEST(BufferPoolTest, BufferPoolPersistence) {
   startThreadPool(1);
   BufferPool bufferPool;
-  ASSERT_TRUE(bufferPool.create(BufferPoolConfig{64*8192}, "./test.db", FileStorageConfig{4}, true) == ErrorCode::E_NO_ERROR);
+  BufferPoolConfig bpConfig;
+  bpConfig.m_poolSizeKB = 64*8192;
+  bpConfig.m_prefetchingDegree = 0;
+  bpConfig.m_numberOfPartitions = 1;
+  ASSERT_TRUE(bufferPool.create(bpConfig, "./test.db", FileStorageConfig{4}, true) == ErrorCode::E_NO_ERROR);
   BufferHandler bufferHandler;
 
   // Allocate pages so that we need a page and a half to store the m_allocationTable.
@@ -176,7 +192,7 @@ TEST(BufferPoolTest, BufferPoolPersistence) {
   // Create a new BufferPool that uses the already existing storage.
   // It will load the m_allocationTable information from disk to memory.
   BufferPool bufferPoolAux;
-  ASSERT_TRUE(bufferPoolAux.open(BufferPoolConfig{64*8192}, "./test.db") == ErrorCode::E_NO_ERROR);
+  ASSERT_TRUE(bufferPoolAux.open(bpConfig, "./test.db") == ErrorCode::E_NO_ERROR);
 
   // Allocate a page with the new Buffer Pool and check that the obtained pageId_t is correct.
   // The Buffer Pool will be using 2 extra pages in order to store the m_allocationTable information.
@@ -235,7 +251,11 @@ TEST(BufferPoolTest, BufferPoolThreadSafe) {
   uint32_t poolSize = 16384;
   uint32_t allocatedPages = 0;
   BufferPool bufferPool;
-  ASSERT_TRUE(bufferPool.create(BufferPoolConfig{64*poolSize}, "./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
+  BufferPoolConfig bpConfig;
+  bpConfig.m_poolSizeKB = 64*poolSize;
+  bpConfig.m_prefetchingDegree = 0;
+  bpConfig.m_numberOfPartitions = 1;
+  ASSERT_TRUE(bufferPool.create(bpConfig, "./test.db", FileStorageConfig{64}, true) == ErrorCode::E_NO_ERROR);
   BufferHandler bufferHandler;
 
   std::vector<std::thread> threads;

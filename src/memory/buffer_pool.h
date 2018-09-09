@@ -201,6 +201,13 @@ class BufferPool {
      */
     ErrorCode checkConsistency();
 
+    /**
+     * Dump of the allocation table to be used with debugging purposes.
+     * 
+     * @return false if the operation was done successfully, true ottherwise.
+     */
+    ErrorCode dumpAllocTable() noexcept;
+
   private:
 
     /**
@@ -212,6 +219,15 @@ class BufferPool {
      * @return false if all pages are pinned, true otherwise.
      */
     ErrorCode getEmptySlot( bufferId_t* bId, uint8_t partition );
+
+    /**
+     * Returns the pageId_t of an empty page. A boolean is returned indicating
+     * whether it has been possible to find a free one or not.
+     * 
+     * @param pId The returned pId of a free page (if found).
+     * @return True if a free page is found, false otherwise.
+     */
+    bool getFreePage(pageId_t* pId) noexcept;
 
     /**
      * Reserve a set of pages and manage the increments of the allocation table.

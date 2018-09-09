@@ -11,11 +11,12 @@ SMILE_NS_BEGIN
  * Tests an alloc operation of 4GB over a 1GB-size Buffer Pool for benchmarking purposes.
  */
 TEST(PerformanceTest, PerformanceTestScan) {
-  startThreadPool(1);
+	startThreadPool(1);
 	BufferPool bufferPool;
-  BufferPoolConfig bpConfig;
-  bpConfig.m_poolSizeKB = 1024*1024;
-  bpConfig.m_prefetchingDegree = 1;
+	BufferPoolConfig bpConfig;
+	bpConfig.m_poolSizeKB = 1024*1024;
+	bpConfig.m_prefetchingDegree = 1;
+	bpConfig.m_numberOfPartitions = 16;
 	ASSERT_TRUE(bufferPool.create(bpConfig, "./test.db", FileStorageConfig{PAGE_SIZE_KB}, true) == ErrorCode::E_NO_ERROR);
 	BufferHandler bufferHandler;
 
@@ -34,7 +35,7 @@ TEST(PerformanceTest, PerformanceTestScan) {
 		ASSERT_TRUE(bufferPool.unpin(bufferHandler.m_pId) == ErrorCode::E_NO_ERROR);
 	}
 
-  stopThreadPool();
+ 	stopThreadPool();
 	ASSERT_TRUE(bufferPool.close() == ErrorCode::E_NO_ERROR);
 }
 

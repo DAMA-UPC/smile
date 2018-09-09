@@ -29,6 +29,10 @@ struct BufferPoolConfig {
      */
     uint16_t  m_prefetchingDegree = 0;
 
+    /**
+     * Number of partitions of the buffer pool.
+     */
+    uint8_t m_numberOfPartitions = 16;
 };
 
 struct BufferHandler {
@@ -204,9 +208,10 @@ class BufferPool {
      * Clock Sweep algorithm is performed to evict a page.
      * 
      * @param bId bufferId_t of the free pool slot.
+     * @param partition Buffer pool partition where to search for an empty slot.
      * @return false if all pages are pinned, true otherwise.
      */
-    ErrorCode getEmptySlot( bufferId_t* bId );
+    ErrorCode getEmptySlot( bufferId_t* bId, uint8_t partition );
 
     /**
      * Reserve a set of pages and manage the increments of the allocation table.
@@ -215,7 +220,7 @@ class BufferPool {
      * @param pageId The first reserved pageId
      * @return false if there was an error, true otherwise
      */
-    ErrorCode reservePages( const uint32_t& numPages, pageId_t* pageId ) noexcept;
+    ErrorCode reservePages( const uint32_t& numPages, pageId_t* pId ) noexcept;
 
     /**
      * Loads the allocation table from disk.
@@ -266,20 +271,28 @@ class BufferPool {
      */
     boost::dynamic_bitset<> m_allocationTable;
 
-    /**
-     * List of free (unallocated) pages.
-     */
-    std::list<pageId_t> m_freePages;
+    struct Partition {
+        /**
+         * List of free (unallocated) pages.
+         */
+        std::list<pageId_t> m_freePages;
+    
+        /**
+         * Queue of free (no page associated to them) buffers.
+         */
+        std::queue<bufferId_t> m_freeBuffers;
+    
+        /**
+         * Maps pageId_t with its bufferId_t in case it is currently in the Buffer Pool. 
+         */
+        std::map<pageId_t, bufferId_t> m_bufferToPageMap;
 
-    /**
-     * Queue of free (no page associated to them) buffers.
-     */
-    std::queue<bufferId_t> m_freeBuffers;
-
-    /**
-     * Maps pageId_t with its bufferId_t in case it is currently in the Buffer Pool. 
-     */
-    std::map<pageId_t, bufferId_t> m_bufferToPageMap;
+        /**
+         * Partition lock to isolate concurrent operations by different threads.
+         */
+        std::unique_ptr<std::shared_timed_mutex> m_lock;
+    };
+    std::vector<Partition> m_partitions;
 
     /**
      * Next victim to test during Clock Sweep.
@@ -289,12 +302,7 @@ class BufferPool {
     /**
      * ID of the next thread used for prefetching.
      */
-    uint16_t m_currentThread;
-
-    /**
-     * Global lock to isolate concurrent operations by different threads.
-     */
-    mutable std::shared_timed_mutex m_globalLock;
+    uint16_t m_currentThread;    
 };
 
 SMILE_NS_END

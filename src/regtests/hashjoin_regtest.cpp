@@ -14,14 +14,13 @@ SMILE_NS_BEGIN
  */
 TEST(PerformanceTest, PerformanceTestHashJoin) {
 	if (std::ifstream("./test.db")) {
-		startThreadPool(NUM_THREADS);
+		startThreadPool(1);
 
 		BufferPool bufferPool;
-    BufferPoolConfig bpConfig;
-    bpConfig.m_poolSizeKB = 1024*1024;
-    bpConfig.m_prefetchingDegree = 1;
+		BufferPoolConfig bpConfig;
+		bpConfig.m_poolSizeKB = 1024*1024;
+		bpConfig.m_prefetchingDegree = 1;
 		ASSERT_TRUE(bufferPool.open(bpConfig, "./test.db") == ErrorCode::E_NO_ERROR);
-		BufferHandler bufferHandler;
 
 		std::array<std::map<uint8_t,uint16_t>,NUM_THREADS> hashTable;
 
@@ -31,6 +30,7 @@ TEST(PerformanceTest, PerformanceTestHashJoin) {
 			uint64_t threadID = omp_get_thread_num();
 			uint64_t numThreads = omp_get_num_threads();
 			uint64_t KBPerThread = (DATA_KB/16)/numThreads;
+			BufferHandler bufferHandler;
 
 			for (uint64_t i = threadID*KBPerThread; (i-threadID*KBPerThread) < KBPerThread; i += PAGE_SIZE_KB) {
 				uint64_t page = 1 + (i/PAGE_SIZE_KB)/(PAGE_SIZE_KB*1024) + (i/PAGE_SIZE_KB);
@@ -75,6 +75,7 @@ TEST(PerformanceTest, PerformanceTestHashJoin) {
 			uint64_t threadID = omp_get_thread_num();
 			uint64_t numThreads = omp_get_num_threads();
 			uint64_t KBPerThread = (DATA_KB-DATA_KB/16)/numThreads;
+			BufferHandler bufferHandler;
 
 			for (uint64_t i = DATA_KB/16+threadID*KBPerThread; (i-threadID*KBPerThread) < KBPerThread; i += PAGE_SIZE_KB) {
 				uint64_t page = 1 + (i/PAGE_SIZE_KB)/(PAGE_SIZE_KB*1024) + (i/PAGE_SIZE_KB) + ((DATA_KB/16)/PAGE_SIZE_KB);
@@ -100,7 +101,7 @@ TEST(PerformanceTest, PerformanceTestHashJoin) {
 		#pragma omp barrier
 
 		stopThreadPool();
-    bufferPool.close();
+		bufferPool.close();
 	}
 }
 

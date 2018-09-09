@@ -384,8 +384,6 @@ ErrorCode BufferPool::checkConsistency() {
 		for (uint64_t i = 0; i < m_allocationTable.size(); ++i) {
 			// Take the lock of the partition
 			uint8_t part = i % m_config.m_numberOfPartitions;
-			std::unique_lock<std::shared_timed_mutex> partitionGuard(*m_partitions[part].m_lock);
-
 			auto itFreePages = std::find(m_partitions[part].m_freePages.begin(), m_partitions[part].m_freePages.end(), i);
 			auto itBuffer = m_partitions[part].m_bufferToPageMap.find(reinterpret_cast<pageId_t>(i));
 

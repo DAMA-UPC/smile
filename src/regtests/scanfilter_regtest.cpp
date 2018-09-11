@@ -7,12 +7,12 @@ SMILE_NS_BEGIN
 
 #define PAGE_SIZE_KB 64
 #define DATA_KB 1*1024*1024
-#define NUM_THREADS 4
+#define NUM_THREADS 1
 
 /**
- * Tests a Group By operation of 4GB over a 1GB-size Buffer Pool for benchmarking purposes.
+ * Tests a scan operation which filters the values found in a set of pages for benchmarking purposes.
  */
-TEST(PerformanceTest, PerformanceTestGroupByArray) {
+TEST(PerformanceTest, PerformanceTestScanFilter) {
 	if (std::ifstream("./test.db")) {
 		startThreadPool(0);
 
@@ -20,17 +20,14 @@ TEST(PerformanceTest, PerformanceTestGroupByArray) {
 		BufferPoolConfig bpConfig;
 		bpConfig.m_poolSizeKB = 1024*1024;
 		bpConfig.m_prefetchingDegree = 0;
-		bpConfig.m_numberOfPartitions = 16;
+		bpConfig.m_numberOfPartitions = 128;
 		ASSERT_TRUE(bufferPool.open(bpConfig, "./test.db") == ErrorCode::E_NO_ERROR);
 
-		std::array<std::array<uint8_t,256>,NUM_THREADS> occurrencesMap;
-		for(uint32_t i = 0; i < NUM_THREADS; ++i) {
-			for(uint32_t j = 0; j < 256; ++j) {
-				occurrencesMap[i][j] = 0;
-			}
-		}
+		uint32_t threshold = 2^32/2;
+		uint32_t counter = 0;
+		std::array<uint32_t,NUM_THREADS> partialCounter;
 
-		// GroupBy operation
+		// Scan Filter operation
 		#pragma omp parallel num_threads(NUM_THREADS)
 		{
 			uint64_t threadID = omp_get_thread_num();
@@ -42,10 +39,12 @@ TEST(PerformanceTest, PerformanceTestGroupByArray) {
 				uint64_t page = 1 + (i/PAGE_SIZE_KB)/(PAGE_SIZE_KB*1024) + (i/PAGE_SIZE_KB);
 				bufferPool.pin(page, &bufferHandler);
 				
-				uint8_t* buffer = reinterpret_cast<uint8_t*>(bufferHandler.m_buffer);
-				for (uint64_t byte = 0; byte < PAGE_SIZE_KB*1024; ++byte) {
-					uint8_t number = *buffer;
-					occurrencesMap[threadID][number]++;
+				uint32_t* buffer = reinterpret_cast<uint32_t*>(bufferHandler.m_buffer);
+				for (uint64_t byte = 0; byte < PAGE_SIZE_KB*1024; byte += 4) {
+					uint32_t number = *buffer;
+					if (number > threshold) {
+						++partialCounter[threadID];
+					}
 					++buffer;
 				}
 
@@ -57,9 +56,7 @@ TEST(PerformanceTest, PerformanceTestGroupByArray) {
 
 		// Final aggregate
 		for (uint64_t i = 1; i < NUM_THREADS; ++i) {
-			for(uint32_t j = 0; j < 256; ++j) {
-					occurrencesMap[0][j] += occurrencesMap[i][j];
-			}
+			counter += partialCounter[i];
 		}
 
 		stopThreadPool();

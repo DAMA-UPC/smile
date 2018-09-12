@@ -306,7 +306,7 @@ class BufferPool {
         /**
          * Partition lock to isolate concurrent operations by different threads.
          */
-        std::unique_ptr<std::shared_timed_mutex> m_lock;
+        std::unique_ptr<std::mutex> p_lock;
     };
     std::vector<Partition> m_partitions;
 

@@ -16,10 +16,10 @@ ErrorCode BufferPool::open( const BufferPoolConfig& bpConfig, const std::string&
 	try {
 		// Before continuing we need to make sure that no operations are being performed
 		m_partitions.resize(bpConfig.m_numberOfPartitions);
-		std::vector<std::unique_lock<std::shared_timed_mutex>> partitionGuards;
+		std::vector<std::unique_lock<std::mutex>> partitionGuards;
 		for (uint32_t i = 0; i < bpConfig.m_numberOfPartitions; ++i) {
-			 m_partitions[i].m_lock = std::make_unique<std::shared_timed_mutex>();
-			 partitionGuards.push_back( std::unique_lock<std::shared_timed_mutex>(*m_partitions[i].m_lock) );
+			 m_partitions[i].p_lock = std::make_unique<std::mutex>();
+			 partitionGuards.push_back( std::unique_lock<std::mutex>(*m_partitions[i].p_lock) );
 		}
 
 		if ( bpConfig.m_poolSizeKB % (m_storage.getPageSize()/1024) != 0 ) {
@@ -56,10 +56,10 @@ ErrorCode BufferPool::create( const BufferPoolConfig& bpConfig, const std::strin
 	try {
 		// Before continuing we need to make sure that no operations are being performed
 		m_partitions.resize(bpConfig.m_numberOfPartitions);
-		std::vector<std::unique_lock<std::shared_timed_mutex>> partitionGuards;
+		std::vector<std::unique_lock<std::mutex>> partitionGuards;
 		for (uint32_t i = 0; i < bpConfig.m_numberOfPartitions; ++i) {
-			 m_partitions[i].m_lock = std::make_unique<std::shared_timed_mutex>();
-			 partitionGuards.push_back( std::unique_lock<std::shared_timed_mutex>(*m_partitions[i].m_lock) );
+			 m_partitions[i].p_lock = std::make_unique<std::mutex>();
+			 partitionGuards.push_back( std::unique_lock<std::mutex>(*m_partitions[i].p_lock) );
 		}
 
 		if ( bpConfig.m_poolSizeKB % fsConfig.m_pageSizeKB != 0 ) {
@@ -117,9 +117,9 @@ ErrorCode BufferPool::close() noexcept {
 ErrorCode BufferPool::alloc( BufferHandler* bufferHandler ) noexcept {
 	try {
 		// Before continuing we need to make sure that no operations are being performed
-		std::vector<std::unique_lock<std::shared_timed_mutex>> partitionGuards;
+		std::vector<std::unique_lock<std::mutex>> partitionGuards;
 		for (uint32_t i = 0; i < m_config.m_numberOfPartitions; ++i) {
-			 partitionGuards.push_back( std::unique_lock<std::shared_timed_mutex>(*m_partitions[i].m_lock) );
+			 partitionGuards.push_back( std::unique_lock<std::mutex>(*m_partitions[i].p_lock) );
 		}
 
 		bufferId_t bId;
@@ -136,7 +136,7 @@ ErrorCode BufferPool::alloc( BufferHandler* bufferHandler ) noexcept {
 
 		// Take the lock of the partition
 		uint8_t part = pId % m_config.m_numberOfPartitions;
-		std::unique_lock<std::shared_timed_mutex> partitionGuard(*m_partitions[part].m_lock);		
+		std::unique_lock<std::mutex> partitionGuard(*m_partitions[part].p_lock);		
 		// Get an empty buffer pool slot for the page and update the buffer table.
 		getEmptySlot(&bId, part);
 		m_partitions[part].m_bufferToPageMap[pId] = bId;
@@ -167,7 +167,7 @@ ErrorCode BufferPool::release( const pageId_t& pId ) noexcept {
 
 		// Take the lock of the partition
 		uint8_t part = pId % m_config.m_numberOfPartitions;
-		std::unique_lock<std::shared_timed_mutex> partitionGuard(*m_partitions[part].m_lock);
+		std::unique_lock<std::mutex> partitionGuard(*m_partitions[part].p_lock);
 
 		// Evict the page in case it is in the Buffer Pool
 		auto it = m_partitions[part].m_bufferToPageMap.find(pId);
@@ -213,7 +213,7 @@ ErrorCode BufferPool::pin( const pageId_t& pId, BufferHandler* bufferHandler, bo
 
 		// Take the lock of the partition
 		uint8_t part = pId % m_config.m_numberOfPartitions;
-		std::unique_lock<std::shared_timed_mutex> partitionGuard(*m_partitions[part].m_lock);
+		std::unique_lock<std::mutex> partitionGuard(*m_partitions[part].p_lock);
 
 		bufferId_t bId;
 		// Look for the desired page in the Buffer Pool.
@@ -293,7 +293,7 @@ ErrorCode BufferPool::unpin( const pageId_t& pId ) noexcept {
 
 		// Take the lock of the partition
 		uint8_t part = pId % m_config.m_numberOfPartitions;
-		std::unique_lock<std::shared_timed_mutex> partitionGuard(*m_partitions[part].m_lock);
+		std::unique_lock<std::mutex> partitionGuard(*m_partitions[part].p_lock);
 
 		// Decrement page's reference count.
 		auto it = m_partitions[part].m_bufferToPageMap.find(pId);
@@ -312,9 +312,9 @@ ErrorCode BufferPool::unpin( const pageId_t& pId ) noexcept {
 ErrorCode BufferPool::checkpoint() noexcept {
 	try {
 		// Before continuing we need to make sure that no operations are being performed
-		std::vector<std::unique_lock<std::shared_timed_mutex>> partitionGuards;
+		std::vector<std::unique_lock<std::mutex>> partitionGuards;
 		for (uint32_t i = 0; i < m_config.m_numberOfPartitions; ++i) {
-			 partitionGuards.push_back( std::unique_lock<std::shared_timed_mutex>(*m_partitions[i].m_lock) );
+			 partitionGuards.push_back( std::unique_lock<std::mutex>(*m_partitions[i].p_lock) );
 		}
 
 		// Flush dirty buffers
@@ -332,7 +332,7 @@ ErrorCode BufferPool::setPageDirty( const pageId_t& pId ) noexcept {
 	try {
 		// Take the lock of the partition
 		uint8_t part = pId % m_config.m_numberOfPartitions;
-		std::unique_lock<std::shared_timed_mutex> partitionGuard(*m_partitions[part].m_lock);
+		std::unique_lock<std::mutex> partitionGuard(*m_partitions[part].p_lock);
 
 		auto it = m_partitions[part].m_bufferToPageMap.find(pId);
 		assert(it != m_partitions[part].m_bufferToPageMap.end() && "Page not present");
@@ -350,9 +350,9 @@ ErrorCode BufferPool::setPageDirty( const pageId_t& pId ) noexcept {
 ErrorCode BufferPool::getStatistics( BufferPoolStatistics* stats ) noexcept {
 	try {
 		// Before continuing we need to make sure that no operations are being performed
-		std::vector<std::unique_lock<std::shared_timed_mutex>> partitionGuards;
+		std::vector<std::unique_lock<std::mutex>> partitionGuards;
 		for (uint32_t i = 0; i < m_config.m_numberOfPartitions; ++i) {
-			 partitionGuards.push_back( std::unique_lock<std::shared_timed_mutex>(*m_partitions[i].m_lock) );
+			 partitionGuards.push_back( std::unique_lock<std::mutex>(*m_partitions[i].p_lock) );
 		}
 
 		uint64_t numAllocatedPages = 0;
@@ -376,9 +376,9 @@ ErrorCode BufferPool::getStatistics( BufferPoolStatistics* stats ) noexcept {
 ErrorCode BufferPool::checkConsistency() {
 	try {
 		// Before continuing we need to make sure that no operations are being performed
-		std::vector<std::unique_lock<std::shared_timed_mutex>> partitionGuards;
+		std::vector<std::unique_lock<std::mutex>> partitionGuards;
 		for (uint32_t i = 0; i < m_config.m_numberOfPartitions; ++i) {
-			 partitionGuards.push_back( std::unique_lock<std::shared_timed_mutex>(*m_partitions[i].m_lock) );
+			 partitionGuards.push_back( std::unique_lock<std::mutex>(*m_partitions[i].p_lock) );
 		}
 
 		for (uint64_t i = 0; i < m_allocationTable.size(); ++i) {

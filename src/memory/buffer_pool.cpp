@@ -4,8 +4,8 @@
 #include "../tasking/tasking.h"
 #include <assert.h>
 #include <algorithm>
-
 #include <iostream>
+#include <numa.h>
 
 SMILE_NS_BEGIN
 
@@ -30,16 +30,23 @@ ErrorCode BufferPool::open( const BufferPoolConfig& bpConfig, const std::string&
 			throw ErrorCode::E_BUFPOOL_NO_THREADS_AVAILABLE_FOR_PREFETCHING;
 		}
 
+		if ( numa_available() < 0 ) {
+			throw ErrorCode::E_BUFPOOL_NUMA_API_NOT_SUPPORTED;
+		}
+
 		m_storage.open(path);
 		m_config = bpConfig;
 		uint32_t pageSizeKB = m_storage.getPageSize() / 1024;
 		uint32_t poolElems = m_config.m_poolSizeKB / pageSizeKB;
+		uint32_t numaNodes = numa_max_node() + 1;
 		m_descriptors.resize(poolElems);
-		for (int i = 0; i < poolElems; ++i) {
-			m_descriptors[i].m_contentLock = std::make_unique<std::shared_timed_mutex>();
-			m_descriptors[i].p_buffer = (char*) malloc( pageSizeKB*1024 );
+		for (uint32_t i = 0; i < poolElems; ++i) {
 			uint8_t part = i % m_config.m_numberOfPartitions;
 			m_partitions[part].m_freeBuffers.push(i);
+			m_descriptors[i].m_contentLock = std::make_unique<std::shared_timed_mutex>();
+			// Depending on the partition, buffers are allocated into different numa nodes
+			uint8_t node = part % numaNodes;
+			m_descriptors[i].p_buffer = (char*) numa_alloc_onnode( pageSizeKB*1024, node);
 		}
 		m_nextCSVictim = 0;
 		m_currentThread = 0;
@@ -70,16 +77,23 @@ ErrorCode BufferPool::create( const BufferPoolConfig& bpConfig, const std::strin
 			throw ErrorCode::E_BUFPOOL_NO_THREADS_AVAILABLE_FOR_PREFETCHING;
 		}
 
+		if ( numa_available() < 0 ) {
+			throw ErrorCode::E_BUFPOOL_NUMA_API_NOT_SUPPORTED;
+		}
+
 		m_storage.create(path, fsConfig, overwrite);
 		m_config = bpConfig;
 		uint32_t pageSizeKB = m_storage.getPageSize() / 1024;
 		uint32_t poolElems = m_config.m_poolSizeKB / pageSizeKB;
+		uint32_t numaNodes = numa_max_node() + 1;
 		m_descriptors.resize(poolElems);
-		for (int i = 0; i < poolElems; ++i) {
-			m_descriptors[i].m_contentLock = std::make_unique<std::shared_timed_mutex>();
-			m_descriptors[i].p_buffer = (char*) malloc( pageSizeKB*1024 );
+		for (uint32_t i = 0; i < poolElems; ++i) {
 			uint8_t part = i % m_config.m_numberOfPartitions;
 			m_partitions[part].m_freeBuffers.push(i);
+			m_descriptors[i].m_contentLock = std::make_unique<std::shared_timed_mutex>();
+			// Depending on the partition, buffers are allocated into different numa nodes
+			uint8_t node = part % numaNodes;
+			m_descriptors[i].p_buffer = (char*) numa_alloc_onnode( pageSizeKB*1024, node);
 		}
 		m_nextCSVictim = 0;
 		m_currentThread = 0;
@@ -99,7 +113,7 @@ ErrorCode BufferPool::close() noexcept {
 		storeAllocationTable();
 
 		for (int i = 0; i < m_descriptors.size(); ++i) {
-			free(m_descriptors[i].p_buffer);
+			numa_free(m_descriptors[i].p_buffer, m_storage.getPageSize());
 		}
 
 		m_storage.close();

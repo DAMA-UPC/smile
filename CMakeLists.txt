@@ -68,6 +68,12 @@ set(Boost_USE_STATIC_RUNTIME OFF)
 FIND_PACKAGE(Boost 1.66 COMPONENTS program_options date_time thread system locale context REQUIRED)
 
 #
+# Numa
+#
+set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules/;${CMAKE_MODULE_PATH}")
+FIND_PACKAGE(NUMA REQUIRED)
+
+#
 # Set output folders
 #
 set(SMILE_LIB_OUTPUT_DIR "${CMAKE_BINARY_DIR}/lib")

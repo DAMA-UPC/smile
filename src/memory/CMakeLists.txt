@@ -14,7 +14,7 @@ add_library(memory STATIC
   buffer_pool.cpp
 )
 
-#target_link_libraries(memory storage base)
+target_link_libraries(memory storage base numa)
 #target_link_libraries(memory storage base)
 
 #add_subdirectory(tests)

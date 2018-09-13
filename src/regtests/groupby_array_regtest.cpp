@@ -2,6 +2,7 @@
 #include <memory/buffer_pool.h>
 #include <tasking/tasking.h>
 #include <omp.h>
+#include <numa.h>
 
 SMILE_NS_BEGIN
 
@@ -23,6 +24,9 @@ TEST(PerformanceTest, PerformanceTestGroupByArray) {
 		bpConfig.m_numberOfPartitions = 16;
 		ASSERT_TRUE(bufferPool.open(bpConfig, "./test.db") == ErrorCode::E_NO_ERROR);
 
+		const uint64_t numaNodes = numa_max_node() + 1;
+		ASSERT_TRUE(NUM_THREADS >= numaNodes && NUM_THREADS % numaNodes == 0);
+
 		std::array<std::array<uint8_t,256>,NUM_THREADS> occurrencesMap;
 		for(uint32_t i = 0; i < NUM_THREADS; ++i) {
 			for(uint32_t j = 0; j < 256; ++j) {
@@ -35,10 +39,11 @@ TEST(PerformanceTest, PerformanceTestGroupByArray) {
 		{
 			uint64_t threadID = omp_get_thread_num();
 			uint64_t numThreads = omp_get_num_threads();
-			uint64_t KBPerThread = DATA_KB/numThreads;
+			uint64_t KBRangePerThread = DATA_KB/(numThreads/numaNodes);
+			uint64_t startingKB = KBRangePerThread*(threadID/numaNodes) + PAGE_SIZE_KB*(threadID%numaNodes);
 			BufferHandler bufferHandler;
 
-			for (uint64_t i = threadID*KBPerThread; (i-threadID*KBPerThread) < KBPerThread; i += PAGE_SIZE_KB) {
+			for (uint64_t i = startingKB; i < KBRangePerThread + startingKB; i += PAGE_SIZE_KB * numaNodes) {
 				uint64_t page = 1 + (i/PAGE_SIZE_KB)/(PAGE_SIZE_KB*1024) + (i/PAGE_SIZE_KB);
 				bufferPool.pin(page, &bufferHandler);
 				
